@@ -1,20 +1,69 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Scuffed UNO
 
-# Run and deploy your AI Studio app
+A real-time multiplayer UNO-style card game built with React, Tailwind CSS, Socket.IO, and Express.
 
-This contains everything you need to run your app locally.
+## Features
+- Multiplayer gameplay with real-time syncing via Socket.IO
+- Stacking rules (+2 on +2, +4 on +4)
+- Jump-in rules (play out of turn if you have an exact matching card)
+- "No Mercy" mode and "Rule 7-0" support
+- Dynamic card animations and layout transitions
+- In-game chat system
 
-View your app in AI Studio: https://ai.studio/apps/88cb7c46-2fa7-472a-979c-1db2e7dc96a8
+## Running with Docker
 
-## Run Locally
+You can easily run this application in an isolated container using Docker.
 
-**Prerequisites:**  Node.js
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) installed on your machine.
 
+### 1. Build the Docker image
+Open your terminal in the root directory of the project (where the `Dockerfile` is located) and run:
+
+```bash
+docker build -t scuffed-uno .
+```
+
+### 2. Run the Docker container
+Once the build is complete, you can start the container. The application runs on port `3000` by default.
+
+```bash
+docker run -p 3000:3000 -d --name scuffed-uno-app scuffed-uno
+```
+
+### 3. Access the application
+Open your web browser and navigate to:
+[http://localhost:3000](http://localhost:3000)
+
+### Stopping the container
+To stop the running game server:
+```bash
+docker stop scuffed-uno-app
+```
+
+To remove the container completely:
+```bash
+docker rm scuffed-uno-app
+```
+
+## Local Development (Without Docker)
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+npm install
+```
+
+2. Start the development server:
+```bash
+npm run dev
+```
+
+3. Build for production:
+```bash
+npm run build
+```
+
+4. Start the production build:
+```bash
+npm start
+```
