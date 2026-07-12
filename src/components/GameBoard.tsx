@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../useAudio';
 import { GameState, Card, CardColor } from '../types.ts';
@@ -169,6 +169,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
   const hidePassTurn = gameState.forcePlayEnabled && isDrawnCardPlayable;
 
   return (
+    <LayoutGroup>
     <div className="flex-1 flex flex-col relative bg-[radial-gradient(circle_at_center,_#1c1c24_0%,_#0a0a0c_80%)]">
       {/* Header */}
       <header className="h-14 px-6 flex items-center justify-between bg-[#141418] border-b border-white/10 z-50">
@@ -402,9 +403,14 @@ export default function GameBoard({ gameState, socketId }: Props) {
                 <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold ${gameState.players[gameState.currentPlayerIndex]?.id === p.id ? 'bg-yellow-500/20 border-2 border-yellow-500 ring-4 ring-yellow-500/20 shadow-[0_0_20px_rgba(234,179,8,0.3)] text-yellow-400' : 'bg-white/10 border-2 border-white/20'}`}>
                   {p.name.substring(0, 2).toUpperCase()}
                 </div>
-                <div className="text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded uppercase">
+                <motion.div 
+                  key={p.hand.length}
+                  initial={{ scale: 1.5, color: '#eab308' }}
+                  animate={{ scale: 1, color: '#ffffff' }}
+                  className="text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded uppercase"
+                >
                   {p.hand.length} CARDS
-                </div>
+                </motion.div>
                 {!p.connected && <div className="text-[10px] text-red-500 font-bold uppercase">(DC)</div>}
                 {p.hand.length === 1 && !p.unoCalled && (
                    <button onClick={() => socket.emit('catch_uno', {roomId: gameState.id, targetId: p.id})} className="mt-2 text-[10px] bg-red-600 hover:bg-red-500 font-bold px-2 py-1 rounded text-white animate-pulse">
@@ -452,12 +458,23 @@ export default function GameBoard({ gameState, socketId }: Props) {
             {/* Discard Pile */}
             <div className="relative w-24 h-36">
               {gameState.discardPile.slice(-3).map((card, i, arr) => (
-                <div key={card.id} className={`absolute top-0 left-0 transition-all duration-300`} style={{ 
-                  transform: `rotate(${(i - arr.length + 1) * 8 - 6}deg) translate(${(i - arr.length + 1) * 2}px, ${(i - arr.length + 1) * 2}px)`,
-                  zIndex: i
-                }}>
+                <motion.div 
+                  key={card.id}
+                  layoutId={card.id}
+                  className="absolute top-0 left-0"
+                  style={{ zIndex: i }}
+                  initial={{ scale: 1.5, opacity: 0, y: -100, rotate: Math.random() * 20 - 10 }}
+                  animate={{ 
+                    scale: 1, 
+                    opacity: 1, 
+                    rotate: (i - arr.length + 1) * 8 - 6,
+                    x: (i - arr.length + 1) * 2,
+                    y: (i - arr.length + 1) * 2
+                  }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                >
                   <PlayingCard card={card} isCurrentColor={i === arr.length - 1 ? gameState.currentColor : undefined} />
-                </div>
+                </motion.div>
               ))}
               <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-widest text-white/40 uppercase whitespace-nowrap">Discard</div>
             </div>
@@ -530,9 +547,10 @@ export default function GameBoard({ gameState, socketId }: Props) {
                    return (
                      <motion.div
                        key={card.id}
+                       layoutId={card.id}
                        layout
-                       initial={{ opacity: 0, y: 50 }}
-                       animate={{ opacity: 1, y: 0 }}
+                       initial={{ opacity: 0, y: -200, scale: 0.2 }}
+                       animate={{ opacity: 1, y: 0, scale: 1, rotate: 0, x: 0 }}
                        exit={{ opacity: 0, scale: 0.5 }}
                        whileHover={isValid ? { y: -24, rotate: (index % 2 === 0 ? 3 : -2), zIndex: 50, scale: 1.05 } : {}}
                        className={`relative transition-all cursor-pointer shadow-2xl ${!isValid && isMyTurn ? 'opacity-50 brightness-75 grayscale-[20%]' : ''} ${!isValid ? 'pointer-events-none' : ''}`}
@@ -612,6 +630,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
       {/* Chat Sidebar */}
       <Chat gameState={gameState} socketId={socketId} />
     </div>
+    </LayoutGroup>
   );
 }
 
