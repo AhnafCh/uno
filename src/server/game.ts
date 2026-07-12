@@ -115,7 +115,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   const topCard = room.discardPile[room.discardPile.length - 1];
 
   const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild';
-  const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn;
+  const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn && room.jumpInExpiry && Date.now() <= room.jumpInExpiry;
 
   if (!isTurn && !canJumpIn) {
       socket?.emit("error", "Not your turn");
@@ -162,8 +162,10 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   if (player.hand.length > 1) player.unoCalled = false;
   room.discardPile.push(card);
   room.currentColor = (card.color === 'wild' && chosenColor) ? chosenColor : card.color;
+   room.jumpInExpiry = Date.now() + 5000;
   room.lastActionMessage = `${player.name} played ${card.color !== 'wild' ? card.color : chosenColor} ${card.value}`;
   room.drawnCardThisTurn = null; // Clear draw state
+  room.jumpInExpiry = Date.now() + 5000;
 
   if (player.hand.length === 0) {
       room.status = 'finished';
@@ -319,7 +321,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
    }
    
    const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild';
-   const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn;
+   const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn && room.jumpInExpiry && Date.now() <= room.jumpInExpiry;
 
    if (!isTurn && !canJumpIn) {
       socket?.emit("error", "Not your turn");
@@ -804,6 +806,8 @@ export function setupGameLogic(io: Server) {
     });
 
     socket.on("draw_card", (roomId: string) => {
+    const r = rooms.get(roomId);
+    if (r) r.lastPlayTime = 0;
       const room = rooms.get(roomId);
       if (!room || room.status !== 'playing') return;
       const playerIndex = room.players.findIndex(p => p.id === socket.id);

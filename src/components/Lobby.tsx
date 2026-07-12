@@ -22,7 +22,7 @@ export default function Lobby({ onJoin }: Props) {
     <div className="flex-1 flex items-center justify-center bg-[#0a0a0c] p-4">
       <div className="bg-[#141418] p-8 rounded-xl shadow-2xl w-full max-w-md border border-white/10">
         <h1 className="text-4xl font-black text-center mb-8 tracking-tighter italic text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
-          SCUFFED<span className="text-red-500">UNO</span>
+          UNO<span className="text-red-500">WILD</span>
         </h1>
         
         <form onSubmit={handleSubmit} className="space-y-4">

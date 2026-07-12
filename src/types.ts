@@ -43,6 +43,7 @@ export interface GameState {
   botSpeed?: number;
   turnTimeLimit?: number;
   turnStartTime?: number;
+  jumpInExpiry?: number;
   drawnCardThisTurn?: Card | null; // For Play After Draw
 }
 

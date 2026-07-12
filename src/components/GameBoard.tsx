@@ -16,6 +16,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
   const [showColorPicker, setShowColorPicker] = useState<{ cardId: string } | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
   const [chatMsg, setChatMsg] = useState("");
+  const [now, setNow] = useState(Date.now());
   const chatRef = useRef<HTMLDivElement>(null);
   
   const sendChat = (msg: string) => {
@@ -23,6 +24,19 @@ export default function GameBoard({ gameState, socketId }: Props) {
       socket.emit('chat_message', { roomId: gameState.id, message: msg });
       setChatMsg("");
   };
+
+  
+  useEffect(() => {
+    let animationFrameId: number;
+    const updateTime = () => {
+      setNow(Date.now());
+      animationFrameId = requestAnimationFrame(updateTime);
+    };
+    if (gameState.jumpInExpiry && gameState.jumpInExpiry > Date.now()) {
+      updateTime();
+    }
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [gameState.jumpInExpiry]);
 
   useEffect(() => {
      if (chatRef.current) {
@@ -85,11 +99,18 @@ export default function GameBoard({ gameState, socketId }: Props) {
   }, [myPlayer?.hand.length, playSound]);
 
   const isMyTurn = gameState.currentPlayerIndex === myPlayerIndex && gameState.status === 'playing';
+  const prevTurn = useRef(false);
+  useEffect(() => {
+     if (isMyTurn && !prevTurn.current) {
+         playSound('turn');
+     }
+     prevTurn.current = isMyTurn;
+  }, [isMyTurn, playSound]);
 
   const handlePlayCard = (card: Card) => {
     
     const isExactMatch = card.color === gameState.discardPile[gameState.discardPile.length-1].color && card.value === gameState.discardPile[gameState.discardPile.length-1].value && card.color !== 'wild';
-    const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn;
+    const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? now <= gameState.jumpInExpiry : false);
     if (!isMyTurn && !canJumpIn) return;
 
 
@@ -175,7 +196,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
       <header className="h-14 px-6 flex items-center justify-between bg-[#141418] border-b border-white/10 z-50">
         <div className="flex items-center gap-4">
           <div className="text-2xl font-black italic tracking-tighter text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
-            SCUFFED<span className="text-red-500">UNO</span>
+            UNO<span className="text-red-500">WILD</span>
           </div>
           <div className="h-6 w-[1px] bg-white/10 mx-2"></div>
           <span className={`px-3 py-1 border rounded text-[10px] font-bold tracking-widest uppercase ${gameState.mode === 'no-mercy' ? 'bg-red-600/20 border-red-500/40 text-red-400' : 'bg-blue-600/20 border-blue-500/40 text-blue-400'}`}>
@@ -413,7 +434,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                 </motion.div>
                 {!p.connected && <div className="text-[10px] text-red-500 font-bold uppercase">(DC)</div>}
                 {p.hand.length === 1 && !p.unoCalled && (
-                   <button onClick={() => socket.emit('catch_uno', {roomId: gameState.id, targetId: p.id})} className="mt-2 text-[10px] bg-red-600 hover:bg-red-500 font-bold px-2 py-1 rounded text-white animate-pulse">
+                   <button onClick={() => socket.emit('catch_uno', {roomId: gameState.id, targetId: p.id})} className="mt-2 text-xs bg-red-600 hover:bg-red-500 font-black px-4 py-1.5 rounded-full text-white animate-bounce shadow-[0_0_15px_rgba(220,38,38,0.8)] border border-red-400 absolute -bottom-10 z-50 whitespace-nowrap">
                       CATCH UNO!
                    </button>
                 )}
@@ -427,7 +448,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
             {/* Deck */}
             <div className={`relative ${isMyTurn && !gameState.drawnCardThisTurn ? 'cursor-pointer group' : 'opacity-50 pointer-events-none'}`} onClick={handleDraw}>
               <div className="w-24 h-36 bg-[#1a1a1a] border border-white/20 rounded-lg flex items-center justify-center shadow-2xl rotate-2 transition-transform group-hover:rotate-0">
-                 <div className="w-16 h-24 border-2 border-red-600 rounded-full flex items-center justify-center">
+                 <div className="w-16 h-24 border-[12px] border-red-600 rounded-full flex items-center justify-center">
                     <span className="text-red-600 font-black text-2xl tracking-tighter">UNO</span>
                  </div>
               </div>
@@ -450,7 +471,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                   <div className="text-[10px] font-bold text-white/50 tracking-widest uppercase">Current Stack</div>
                 </>
               ) : (
-                <div className={`w-24 h-24 border-2 border-dashed rounded-full -z-30 opacity-30 pointer-events-none transition-transform duration-1000 ${gameState.direction === 1 ? 'animate-[spin_10s_linear_infinite]' : 'animate-[spin_10s_linear_reverse_infinite]'}`} style={{ borderColor: getColorHex(gameState.currentColor) }}>
+                <div className={`w-36 h-36 border-[8px] border-dashed rounded-full -z-30 opacity-80 pointer-events-none transition-transform duration-1000 ${gameState.direction === 1 ? 'animate-[spin_10s_linear_infinite]' : 'animate-[spin_10s_linear_reverse_infinite]'}`} style={{ borderColor: getColorHex(gameState.currentColor), boxShadow: `0 0 40px ${getColorHex(gameState.currentColor)}60, inset 0 0 40px ${getColorHex(gameState.currentColor)}60` }}>
                 </div>
               )}
             </div>
@@ -486,7 +507,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#0a0a0c] border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2 z-10">
                 {isMyTurn && <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>}
-                {isMyTurn ? "YOUR TURN" : "WAITING..."} ({myPlayer.hand.length} CARDS)
+                {isMyTurn ? "YOUR TURN" : "WAITING..."} <span className="ml-2 bg-black/50 px-2 py-1 rounded text-white border border-white/20 text-xs shadow-md">{myPlayer.hand.length} CARDS</span>
                 {timeLeft !== null && (
                    <span className={`ml-2 px-2 py-0.5 rounded ${timeLeft <= 5 ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/10 text-white'}`}>
                       {timeLeft}s
@@ -495,7 +516,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
              </div>
 
              <div className="absolute bottom-48 right-6 flex flex-col gap-3 z-50">
-                 {isMyTurn && gameState.drawnCardThisTurn && !hidePassTurn && (
+                 {isMyTurn && gameState.drawnCardThisTurn && !hidePassTurn && !myPlayer.eliminated && (
                     <button 
                        onClick={() => socket.emit('pass_turn', gameState.id)}
                       className="w-32 py-3 bg-neutral-600 hover:bg-neutral-500 text-white font-black text-xs tracking-widest rounded-md border border-white/10 shadow-lg"
@@ -503,7 +524,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                       PASS TURN
                     </button>
                  )}
-                 {myPlayer.hand.length <= 2 && !myPlayer.unoCalled && (
+                 {myPlayer.hand.length > 0 && myPlayer.hand.length <= 2 && !myPlayer.unoCalled && !myPlayer.eliminated && (
                     <button 
                       onClick={() => socket.emit('call_uno', gameState.id)}
                       className="w-32 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs italic tracking-tighter rounded-md shadow-lg shadow-red-600/20 border-b-4 border-red-800 active:border-b-0 active:translate-y-1 transition-all animate-pulse"
@@ -511,21 +532,23 @@ export default function GameBoard({ gameState, socketId }: Props) {
                       SAY UNO!
                     </button>
                  )}
-                <button 
+                {!myPlayer.eliminated && <button 
                   onClick={() => socket.emit('sort_hand', gameState.id)}
                   className="w-32 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] tracking-widest rounded-md border border-white/10"
                 >
                   SORT HAND
-                </button>
+                </button>}
 
              </div>
              
-             <div className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-4 max-w-6xl mx-auto items-center overflow-x-auto h-full pt-16 pb-8 hide-scrollbar">
+             <div 
+                 onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
+                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-4 max-w-6xl mx-auto items-center overflow-x-auto h-full pt-16 pb-8 hide-scrollbar">
                <AnimatePresence>
                  {myPlayer.hand.map((card, index) => {
                    
                    const isExactMatch = card.color === gameState.discardPile[gameState.discardPile.length-1].color && card.value === gameState.discardPile[gameState.discardPile.length-1].value && card.color !== 'wild';
-                   const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn;
+                   const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? now <= gameState.jumpInExpiry : false);
                    
                    let isValid = false;
                    if (isMyTurn) {
@@ -550,7 +573,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                        layoutId={card.id}
                        layout
                        initial={{ opacity: 0, y: -200, scale: 0.2 }}
-                       animate={{ opacity: 1, y: 0, scale: 1, rotate: 0, x: 0 }}
+                       animate={{ opacity: 1, y: 0, scale: 1, rotate: 0, x: 0, transition: { delay: (index % 10) * 0.15 } }}
                        exit={{ opacity: 0, scale: 0.5 }}
                        whileHover={isValid ? { y: -24, rotate: (index % 2 === 0 ? 3 : -2), zIndex: 50, scale: 1.05 } : {}}
                        className={`relative transition-all cursor-pointer shadow-2xl ${!isValid && isMyTurn ? 'opacity-50 brightness-75 grayscale-[20%]' : ''} ${!isValid ? 'pointer-events-none' : ''}`}
@@ -558,6 +581,12 @@ export default function GameBoard({ gameState, socketId }: Props) {
                        style={{ zIndex: index }}
                      >
                        <PlayingCard card={card} />
+                       {canJumpIn && (
+                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black text-xs px-2 py-1 rounded-full whitespace-nowrap shadow-lg border-2 border-yellow-700 z-50 flex flex-col items-center">
+                           <span className="animate-pulse">JUMP IN!</span>
+                           <span className="text-[9px]">{(Math.max(0, (gameState.jumpInExpiry - now) / 1000)).toFixed(1)}s</span>
+                         </div>
+                       )}
                      </motion.div>
                    );
                  })}

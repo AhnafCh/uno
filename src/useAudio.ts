@@ -13,7 +13,7 @@ export function useAudio() {
     return audioCtxRef.current;
   };
 
-  const playSound = useCallback((type: 'play' | 'draw' | 'uno' | 'error') => {
+  const playSound = useCallback((type: 'play' | 'draw' | 'uno' | 'error' | 'turn') => {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
     const gainNode = ctx.createGain();
@@ -60,6 +60,15 @@ export function useAudio() {
         gainNode.gain.linearRampToValueAtTime(0.01, now + 0.3);
         osc.start(now);
         osc.stop(now + 0.3);
+        break;
+      case 'turn':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.15);
+        gainNode.gain.setValueAtTime(0.3, now);
+        gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
         break;
     }
   }, []);
