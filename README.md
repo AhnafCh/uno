@@ -10,41 +10,62 @@ A real-time multiplayer UNO-style card game built with React, Tailwind CSS, Sock
 - Dynamic card animations and layout transitions
 - In-game chat system
 
-## Running with Docker
+## Running with Docker Compose (Recommended)
 
-You can easily run this application in an isolated container using Docker.
+Using Docker Compose is the easiest way to run the application, as it handles building and port mapping automatically.
 
 ### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) installed on your machine.
+- [Docker](https://docs.docker.com/get-docker/) installed on your machine (Docker Desktop includes Docker Compose).
 
-### 1. Build the Docker image
-Open your terminal in the root directory of the project (where the `Dockerfile` is located) and run:
-
-```bash
-docker build -t scuffed-uno .
-```
-
-### 2. Run the Docker container
-Once the build is complete, you can start the container. The application runs on port `3000` by default.
+### Start the application
+Open your terminal in the root directory of the project and run:
 
 ```bash
-docker run -p 3000:3000 -d --name scuffed-uno-app scuffed-uno
+docker compose up -d
 ```
+*(If you have an older version of Docker, you might need to use `docker-compose up -d`)*
 
-### 3. Access the application
+### Access the application
 Open your web browser and navigate to:
 [http://localhost:3000](http://localhost:3000)
 
-### Stopping the container
-To stop the running game server:
+### Stop the application
 ```bash
-docker stop scuffed-uno-app
+docker compose down
 ```
 
-To remove the container completely:
-```bash
-docker rm scuffed-uno-app
-```
+---
+
+## Running with pure Docker (Alternative)
+
+If you don't want to use Docker Compose, you can use the standard Docker commands:
+
+1. **Build the Docker image**
+   ```bash
+   docker build -t scuffed-uno .
+   ```
+
+2. **Run the Docker container**
+   ```bash
+   docker run -p 3000:3000 -d --name scuffed-uno-app scuffed-uno
+   ```
+
+**Troubleshooting Port & Name Conflicts:**
+- If you see `Bind for 0.0.0.0:3000 failed: port is already allocated`, another service on your machine is using port 3000. You can map it to a different host port (like 3010) while still targeting the container's 3000 port:
+  ```bash
+  docker run -p 3010:3000 -d --name scuffed-uno-app scuffed-uno
+  ```
+  *(Then access it at `http://localhost:3010`)*
+- If you see `The container name "/scuffed-uno-app" is already in use`, you must remove the old container before running it again:
+  ```bash
+  docker rm scuffed-uno-app
+  ```
+
+3. **Stop and Remove the container**
+   ```bash
+   docker stop scuffed-uno-app
+   docker rm scuffed-uno-app
+   ```
 
 ## Local Development (Without Docker)
 
