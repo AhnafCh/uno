@@ -12,6 +12,36 @@ interface Props {
   socketId: string;
 }
 
+
+function OpponentHand({ count }: { count: number }) {
+  const displayCount = Math.min(count, 13);
+  const spread = Math.min(100, displayCount * 10);
+  const startAngle = -spread / 2;
+  const step = displayCount > 1 ? spread / (displayCount - 1) : 0;
+  
+  return (
+    <div className="relative w-24 h-32 flex justify-center pointer-events-none mt-4">
+      {Array.from({ length: displayCount }).map((_, i) => (
+         <div 
+           key={i} 
+           className="absolute w-12 h-16 bg-[#1a1a1a] border border-white/20 rounded shadow-md flex items-center justify-center origin-bottom top-4"
+           style={{ 
+             transform: `rotate(${startAngle + step * i}deg) translateX(${(i - displayCount/2) * 1.5}px)`,
+             zIndex: i
+           }}
+         >
+           <div className="w-8 h-10 border-[2px] border-red-600 rounded-full flex items-center justify-center">
+             <span className="text-red-600 font-black text-[6px] tracking-tighter transform -rotate-12">UNO</span>
+           </div>
+         </div>
+      ))}
+      <div className="absolute bottom-0 bg-black/90 px-3 py-1 rounded text-white text-xs font-black z-50 shadow-xl border border-white/10">
+         {count}
+      </div>
+    </div>
+  );
+}
+
 export default function GameBoard({ gameState, socketId }: Props) {
   const [showColorPicker, setShowColorPicker] = useState<{ cardId: string } | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
@@ -69,6 +99,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
     socket.emit('update_settings', {
       roomId: gameState.id,
       limit: gameState.eliminationLimit || 0,
+      winLimit: gameState.winLimit || 1,
       jumpIn: gameState.jumpInEnabled || false,
       mode: gameState.mode,
       rule70Enabled: gameState.rule70Enabled || false,
@@ -218,14 +249,42 @@ export default function GameBoard({ gameState, socketId }: Props) {
       </header>
 
       {gameState.status === 'finished' ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-4">
-           <div className="bg-neutral-900 border border-white/10 p-12 rounded-3xl shadow-2xl flex flex-col items-center max-w-lg w-full text-center">
-              <h1 className="text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-yellow-600 drop-shadow-lg mb-4">
-                 GAME OVER
+        <div className="flex-1 flex flex-col items-center justify-center p-4 z-50">
+           <div className="bg-neutral-900 border border-white/10 p-8 md:p-12 rounded-3xl shadow-2xl flex flex-col items-center max-w-lg w-full text-center">
+              <h1 className="text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-yellow-600 drop-shadow-lg mb-8">
+                 LEADERBOARD
               </h1>
-              <div className="text-2xl font-medium text-white mb-8">
-                 <span className="font-bold text-green-400">{gameState.winner}</span> won the game!
+              
+              <div className="w-full flex flex-col gap-3 mb-8 text-left">
+                {gameState.winners && gameState.winners.length > 0 ? (
+                  gameState.winners.map((w) => (
+                    <div key={w.name} className="flex items-center justify-between bg-black/40 px-6 py-4 rounded-xl border border-white/5">
+                       <div className="flex items-center gap-4">
+                          <span className={`text-2xl font-black italic ${w.place === 1 ? 'text-yellow-400' : w.place === 2 ? 'text-gray-300' : w.place === 3 ? 'text-amber-600' : 'text-white/50'}`}>
+                             #{w.place}
+                          </span>
+                          <span className="text-xl font-bold text-white">{w.name}</span>
+                       </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xl font-medium text-white mb-8 text-center">
+                    <span className="font-bold text-green-400">{gameState.winner}</span> won the game!
+                  </div>
+                )}
+                {/* Find eliminated players or players who didn't win */}
+                {gameState.players.filter(p => !p.finishedPlace && p.eliminated).map(p => (
+                    <div key={p.name} className="flex items-center justify-between bg-black/40 px-6 py-4 rounded-xl border border-red-500/20 opacity-50">
+                       <div className="flex items-center gap-4">
+                          <span className="text-xl font-black italic text-red-500">
+                             ELIM
+                          </span>
+                          <span className="text-lg font-bold text-white line-through">{p.name}</span>
+                       </div>
+                    </div>
+                ))}
               </div>
+
               {myPlayer?.isHost ? (
                   <button 
                     onClick={() => socket.emit("play_again", gameState.id)} 
@@ -341,6 +400,36 @@ export default function GameBoard({ gameState, socketId }: Props) {
                          <div className="text-[10px] text-white/40 mt-1">Players are eliminated when reaching this card limit (Min 20).</div>
                      </div>
                  )}
+                 {gameState.mode === 'normal' && (
+                     <div className={`bg-white/5 border border-white/10 p-3 rounded-lg ${!myPlayer.isHost ? 'opacity-70 pointer-events-none' : ''}`}>
+                         <div className="flex justify-between items-center">
+                            <label className="text-sm font-bold text-neutral-300">Win Limit</label>
+                            <div className="flex items-center gap-1 bg-black/50 border border-white/10 rounded overflow-hidden">
+                               <button 
+                                  onClick={() => handleUpdateSettings({winLimit: Math.max(1, (gameState.winLimit || 1) - 1)})}
+                                  className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white transition-colors"
+                               >
+                                  -
+                               </button>
+                               <input 
+                                  type="number" 
+                                  min="1" 
+                                  max={9} 
+                                  value={gameState.winLimit || 1} 
+                                  onChange={(e) => handleUpdateSettings({winLimit: Math.max(1, parseInt(e.target.value) || 1)})} 
+                                  className="bg-transparent w-12 text-center text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                               />
+                               <button 
+                                  onClick={() => handleUpdateSettings({winLimit: Math.min(9, (gameState.winLimit || 1) + 1)})}
+                                  className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white transition-colors"
+                               >
+                                  +
+                               </button>
+                            </div>
+                         </div>
+                         <div className="text-[10px] text-white/40 mt-1">Number of players who can win before game ends.</div>
+                     </div>
+                 )}
                  <div className={`flex justify-between items-center pt-2 border-t border-white/10 ${!myPlayer.isHost ? 'opacity-70 pointer-events-none' : ''}`}>
                     <label className="text-sm font-bold text-neutral-300">Enable Jump-In</label>
                     <input type="checkbox" checked={gameState.jumpInEnabled || false} onChange={(e) => handleUpdateSettings({jumpIn: e.target.checked})} className="w-5 h-5 accent-red-500" />
@@ -399,7 +488,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
       ) : (
         <div className="flex-1 relative overflow-hidden flex flex-col">
            {/* Last Action Toast */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
             <AnimatePresence mode="wait">
                {gameState.lastActionMessage && (
                   <motion.div
@@ -418,29 +507,61 @@ export default function GameBoard({ gameState, socketId }: Props) {
           </div>
 
           {/* Other Players */}
-          <div className="flex-1 flex items-start justify-center pt-8 px-8 gap-12 flex-wrap">
-            {otherPlayers.map(p => (
-              <div key={p.id} className={`flex flex-col items-center gap-2 ${!p.connected ? 'opacity-50' : 'opacity-80 scale-90'} ${gameState.players[gameState.currentPlayerIndex]?.id === p.id ? 'opacity-100 scale-100' : ''} relative`}>
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xs font-bold ${gameState.players[gameState.currentPlayerIndex]?.id === p.id ? 'bg-yellow-500/20 border-2 border-yellow-500 ring-4 ring-yellow-500/20 shadow-[0_0_20px_rgba(234,179,8,0.3)] text-yellow-400' : 'bg-white/10 border-2 border-white/20'}`}>
-                  {p.name.substring(0, 2).toUpperCase()}
-                </div>
-                <motion.div 
-                  key={p.hand.length}
-                  initial={{ scale: 1.5, color: '#eab308' }}
-                  animate={{ scale: 1, color: '#ffffff' }}
-                  className="text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded uppercase"
+          <div className="absolute inset-0 z-10 pointer-events-none">
+            {otherPlayers.map((p, i) => {
+              const N = otherPlayers.length;
+              let angle = Math.PI / 2; // Default to top if only 1 player
+              if (N > 1) {
+                 const startAngle = Math.PI * 1.12;
+                 const endAngle = -Math.PI * 0.12;
+                 angle = startAngle - (i / (N - 1)) * (startAngle - endAngle);
+              }
+              
+              // Oval bounds
+              const top = 46 - Math.sin(angle) * 31; // %
+              const left = 50 + Math.cos(angle) * 44; // %
+              
+              const isCurrentTurn = gameState.players[gameState.currentPlayerIndex]?.id === p.id;
+              
+              return (
+                <div 
+                  key={p.id} 
+                  className={`absolute flex flex-col items-center justify-center transition-all duration-700 ease-out ${!p.connected ? 'opacity-50' : 'opacity-100'} ${isCurrentTurn ? 'scale-110 z-20' : 'scale-100 z-10'} pointer-events-auto`}
+                  style={{ top: `${top}%`, left: `${left}%`, transform: 'translate(-50%, -50%)' }}
                 >
-                  {p.hand.length} CARDS
-                </motion.div>
-                {!p.connected && <div className="text-[10px] text-red-500 font-bold uppercase">(DC)</div>}
-                {p.hand.length === 1 && !p.unoCalled && (
-                   <button onClick={() => socket.emit('catch_uno', {roomId: gameState.id, targetId: p.id})} className="mt-2 text-xs bg-red-600 hover:bg-red-500 font-black px-4 py-1.5 rounded-full text-white animate-bounce shadow-[0_0_15px_rgba(220,38,38,0.8)] border border-red-400 absolute -bottom-10 z-50 whitespace-nowrap">
-                      CATCH UNO!
-                   </button>
-                )}
-                {p.eliminated && <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg z-20"><span className="text-red-500 font-black text-xl rotate-12 uppercase">Eliminated</span></div>}
-              </div>
-            ))}
+                  {/* Name Tag */}
+                  <div className="z-20 text-[10px] font-bold text-white/90 truncate max-w-[120px] bg-black/60 px-3 py-1 rounded-full border border-white/10 shadow-lg mb-1 whitespace-nowrap">
+                    {p.name}
+                  </div>
+                  
+                  {/* Avatar */}
+                  <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center text-sm font-black shadow-2xl transition-colors duration-500 z-10 ${isCurrentTurn ? 'bg-yellow-500/30 border-2 border-yellow-400 ring-4 ring-yellow-500/30 shadow-[0_0_30px_rgba(234,179,8,0.5)] text-yellow-300' : 'bg-[#1a1a1a] border-2 border-white/20 text-white/70'}`}>
+                    <span>{p.name.substring(0, 2).toUpperCase()}</span>
+                  </div>
+                  
+                  {/* Cards */}
+                  <div className="-mt-3">
+                    <OpponentHand count={p.hand.length} />
+                  </div>
+                  
+                  {!p.connected && <div className="text-[10px] text-red-500 font-bold uppercase absolute -right-6 top-6 bg-black/80 px-2 py-1 rounded border border-red-500/30 z-30">(DC)</div>}
+                  
+                  {p.finishedPlace && (
+                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg z-40">
+                      <div className="text-yellow-400 font-black text-2xl rotate-12 uppercase drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]">
+                         #{p.finishedPlace}
+                      </div>
+                    </div>
+                  )}
+                  {p.hand.length === 1 && !p.unoCalled && !p.finishedPlace && (
+                     <button onClick={() => socket.emit('catch_uno', {roomId: gameState.id, targetId: p.id})} className="absolute -bottom-4 text-[9px] bg-red-600 hover:bg-red-500 font-black px-3 py-1 rounded-full text-white animate-bounce shadow-[0_0_15px_rgba(220,38,38,1)] border border-red-400 z-50 whitespace-nowrap">
+                        CATCH UNO!
+                     </button>
+                  )}
+                  {p.eliminated && <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg z-40"><span className="text-red-500 font-black text-xs rotate-12 uppercase">Eliminated</span></div>}
+                </div>
+              );
+            })}
           </div>
 
           {/* Center Area (Deck & Discard) */}

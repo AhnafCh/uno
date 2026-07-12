@@ -39,9 +39,11 @@ function createRoom(roomId: string, mode: GameMode = 'normal'): GameState {
     currentColor: 'red', // Dummy initial
     currentPenalty: 0,
     winner: null,
+    winners: [],
     chat: [],
     lastActionMessage: 'Room created',
     eliminationLimit: 20,
+    winLimit: 1,
     jumpInEnabled: true,
     stackingEnabled: mode === 'no-mercy',
     drawnCardThisTurn: null
@@ -76,26 +78,55 @@ function checkEliminations(room: GameState, io: Server) {
 
 
 function checkWinner(room: GameState, io: Server): boolean {
-    const winner = room.players.find(p => p.hand.length === 0 && !p.eliminated);
-    if (winner) {
+    const activePlayers = room.players.filter(p => !p.eliminated && !p.finishedPlace && (p.connected || p.isBot));
+    
+    // Check if any active player just finished their hand
+    let justFinished = false;
+    for (const p of room.players) {
+        if (!p.eliminated && !p.finishedPlace && p.hand.length === 0) {
+            const place = (room.winners?.length || 0) + 1;
+            p.finishedPlace = place;
+            if (!room.winners) room.winners = [];
+            room.winners.push({ name: p.name, place });
+            if (!room.winner) room.winner = p.name; // Keep first place winner here for backward compatibility
+            room.lastActionMessage = `${p.name} finished in ${place}${place===1?'st':place===2?'nd':place===3?'rd':'th'} place!`;
+            justFinished = true;
+        }
+    }
+    
+    const remainingActive = room.players.filter(p => !p.eliminated && !p.finishedPlace && (p.connected || p.isBot));
+    
+    const winLimit = room.winLimit || 1;
+    const isGameFinished = (remainingActive.length <= 1 && room.players.length > 1) || (room.winners?.length >= winLimit);
+    
+    if (isGameFinished) {
+        // If there's only 1 active left and it's a game end, give them the last place
+        if (remainingActive.length === 1) {
+             const p = remainingActive[0];
+             const place = (room.winners?.length || 0) + 1;
+             p.finishedPlace = place;
+             if (!room.winners) room.winners = [];
+             room.winners.push({ name: p.name, place });
+        }
         room.status = 'finished';
-        room.winner = winner.name;
         io.to(room.id).emit("state_update", room);
         return true;
     }
+    
+    if (justFinished) {
+         // Emit state update if someone just finished but game is not over
+         io.to(room.id).emit("state_update", room);
+    }
+    
     return false;
 }
 
 function nextPlayerIndex(room: GameState, skipCount = 1) {
   let next = room.currentPlayerIndex;
   for (let i = 0; i < skipCount; i++) {
-    next = (next + room.direction + room.players.length) % room.players.length;
-    // skip disconnected (but bots are always connected)
-    let loopCount = 0;
-    while (((!room.players[next].connected && !room.players[next].isBot) || room.players[next].eliminated) && loopCount < room.players.length) {
+    do {
       next = (next + room.direction + room.players.length) % room.players.length;
-      loopCount++;
-    }
+    } while (room.players[next].eliminated || room.players[next].finishedPlace || (!room.players[next].connected && !room.players[next].isBot));
   }
   return next;
 }
@@ -167,12 +198,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   room.drawnCardThisTurn = null; // Clear draw state
   room.jumpInExpiry = Date.now() + 5000;
 
-  if (player.hand.length === 0) {
-      room.status = 'finished';
-      room.winner = player.name;
-      io.to(roomId).emit("state_update", room);
-      return;
-  }
+  if (checkWinner(room, io)) return;
 
   // Apply card effects
   let skip = 1;
@@ -351,13 +377,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
    room.currentColor = (card.color === 'wild' && chosenColor) ? chosenColor : card.color;
    room.drawnCardThisTurn = null;
    
-   if (p1.hand.length === 0) {
-      room.status = 'finished';
-      room.winner = p1.name;
-      room.lastActionMessage = `${p1.name} played 7 as their last card and won!`;
-      io.to(roomId).emit("state_update", room);
-      return;
-   }
+   if (checkWinner(room, io)) return;
    
    // Swap
    const temp = p1.hand;
@@ -368,10 +388,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
 
    room.lastActionMessage = `${p1.name} played 7 and swapped hands with ${p2.name}!`;
 
-  if (p2.hand.length === 0) {
-    room.status = 'finished';
-    room.winner = p2.name;
-  } else {
+  if (checkWinner(room, io)) return; else {
     room.currentPlayerIndex = nextPlayerIndex(room, 1);
   room.turnStartTime = Date.now();
   }
@@ -698,12 +715,14 @@ export function setupGameLogic(io: Server) {
         room.drawnCardThisTurn = null;
         room.lastActionMessage = undefined;
         room.winner = undefined;
+        room.winners = [];
         // Keep players but reset their state
         room.players = room.players.map(p => ({
             ...p,
             hand: [],
             unoCalled: false,
             eliminated: false,
+            finishedPlace: undefined,
         }));
         
         io.to(roomId).emit("state_update", room);
@@ -736,13 +755,14 @@ export function setupGameLogic(io: Server) {
         }
     });
 
-            socket.on("update_settings", ({roomId, limit, jumpIn, mode, rule70Enabled, forcePlayEnabled, botSpeed, turnTimeLimit}: {roomId: string, limit: number, jumpIn: boolean, mode?: 'normal' | 'no-mercy', rule70Enabled?: boolean, forcePlayEnabled?: boolean, botSpeed?: number, turnTimeLimit?: number}) => {
+            socket.on("update_settings", ({roomId, limit, winLimit, jumpIn, mode, rule70Enabled, forcePlayEnabled, botSpeed, turnTimeLimit}: {roomId: string, limit: number, jumpIn: boolean, mode?: 'normal' | 'no-mercy', rule70Enabled?: boolean, forcePlayEnabled?: boolean, botSpeed?: number, turnTimeLimit?: number}) => {
        const room = rooms.get(roomId);
        if (!room) return;
        const player = room.players.find(p => p.id === socket.id);
        if (!player || !player.isHost) return;
        if (room.status !== 'lobby') return;
        room.eliminationLimit = limit;
+       if (winLimit !== undefined) room.winLimit = winLimit;
        room.jumpInEnabled = jumpIn;
        
        if (rule70Enabled !== undefined) room.rule70Enabled = rule70Enabled;

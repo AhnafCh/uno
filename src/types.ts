@@ -17,6 +17,7 @@ export interface Player {
   botPersonality?: 'normal' | 'aggressive' | 'hoarder';
   unoCalled?: boolean;
   eliminated?: boolean;
+  finishedPlace?: number;
 }
 
 export type GameMode = 'normal' | 'no-mercy';
@@ -33,9 +34,11 @@ export interface GameState {
   currentColor: CardColor;
   currentPenalty: number;
   winner: string | null;
+  winners: { name: string; place: number }[];
   chat: ChatMessage[];
   lastActionMessage: string;
   eliminationLimit?: number;
+  winLimit?: number;
   jumpInEnabled?: boolean;
   stackingEnabled?: boolean; // For No Mercy Stacking Logic / Normal stacking
   rule70Enabled?: boolean;
