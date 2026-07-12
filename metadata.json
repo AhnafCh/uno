@@ -1,0 +1,6 @@
+{
+  "name": "Scuffed UNO",
+  "description": "Real-time multiplayer UNO clone with No Mercy mode",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
