@@ -1,11 +1,12 @@
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../useAudio';
-import { GameState, Card, CardColor } from '../types.ts';
+import { GameState, Card, CardColor, getDrawValue } from '../types.ts';
 import { socket } from '../socket.ts';
 import PlayingCard from './PlayingCard.tsx';
 import Chat from './Chat.tsx';
 import { Users, LogOut, Info } from 'lucide-react';
+import CardBack from './CardBack.tsx';
 
 interface Props {
   gameState: GameState;
@@ -21,20 +22,27 @@ function OpponentHand({ count }: { count: number }) {
   
   return (
     <div className="relative w-24 h-32 flex justify-center pointer-events-none mt-4">
-      {Array.from({ length: displayCount }).map((_, i) => (
-         <div 
-           key={i} 
-           className="absolute w-12 h-16 bg-[#1a1a1a] border border-white/20 rounded shadow-md flex items-center justify-center origin-bottom top-4"
-           style={{ 
-             transform: `rotate(${startAngle + step * i}deg) translateX(${(i - displayCount/2) * 1.5}px)`,
-             zIndex: i
-           }}
-         >
-           <div className="w-8 h-10 border-[2px] border-red-600 rounded-full flex items-center justify-center">
-             <span className="text-red-600 font-black text-[6px] tracking-tighter transform -rotate-12">UNO</span>
-           </div>
-         </div>
-      ))}
+      <AnimatePresence>
+        {Array.from({ length: displayCount }).map((_, i) => (
+           <motion.div 
+             key={i} 
+             className="absolute origin-bottom top-4 drop-shadow-md"
+             initial={{ opacity: 0, scale: 0.5, y: -20 }}
+             animate={{ 
+               opacity: 1, 
+               scale: 1, 
+               y: 0,
+               rotate: startAngle + step * i,
+               x: (i - displayCount/2) * 1.5
+             }}
+             exit={{ opacity: 0, scale: 0.5, y: -20 }}
+             transition={{ type: "spring", stiffness: 300, damping: 25, delay: i * 0.05 }}
+             style={{ zIndex: i }}
+           >
+             <CardBack size="sm" />
+           </motion.div>
+        ))}
+      </AnimatePresence>
       <div className="absolute bottom-0 bg-black/90 px-3 py-1 rounded text-white text-xs font-black z-50 shadow-xl border border-white/10">
          {count}
       </div>
@@ -138,12 +146,18 @@ export default function GameBoard({ gameState, socketId }: Props) {
      prevTurn.current = isMyTurn;
   }, [isMyTurn, playSound]);
 
+  const [playingCardIds, setPlayingCardIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Clear optimistic playing state when the server state catches up
+    setPlayingCardIds([]);
+  }, [gameState.discardPile.length, gameState.players]);
+
   const handlePlayCard = (card: Card) => {
     
     const isExactMatch = card.color === gameState.discardPile[gameState.discardPile.length-1].color && card.value === gameState.discardPile[gameState.discardPile.length-1].value && card.color !== 'wild';
     const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? now <= gameState.jumpInExpiry : false);
     if (!isMyTurn && !canJumpIn) return;
-
 
     if (card.value === '7' && (gameState.mode === 'no-mercy' || gameState.rule70Enabled)) {
       if (card.color === 'wild') {
@@ -159,6 +173,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
       return;
     }
 
+    setPlayingCardIds(prev => [...prev, card.id]);
     socket.emit('play_card', { roomId: gameState.id, cardId: card.id });
   };
 
@@ -173,11 +188,14 @@ export default function GameBoard({ gameState, socketId }: Props) {
         return;
     }
 
+    setPlayingCardIds(prev => [...prev, cardId]);
     socket.emit('play_card', { roomId: gameState.id, cardId, chosenColor: color });
   };
 
   const onPlayerChosen = (targetPlayerId: string) => {
     if (!showPlayerPicker) return;
+    
+    setPlayingCardIds(prev => [...prev, showPlayerPicker.cardId]);
     socket.emit('swap_hand', { 
        roomId: gameState.id, 
        targetPlayerId, 
@@ -211,14 +229,20 @@ export default function GameBoard({ gameState, socketId }: Props) {
       const card = gameState.drawnCardThisTurn;
       const topCard = gameState.discardPile[gameState.discardPile.length - 1];
       if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
-          isDrawnCardPlayable = (topCard.value === 'draw4' && card.value === 'draw4') || 
-                                (topCard.value === 'draw2' && (card.value === 'draw2' || card.value === 'draw4'));
+          if (gameState.mode === 'no-mercy') {
+              const topDrawVal = getDrawValue(topCard.value);
+              const playDrawVal = getDrawValue(card.value);
+              isDrawnCardPlayable = topDrawVal > 0 && playDrawVal >= topDrawVal;
+          } else {
+              isDrawnCardPlayable = (topCard.value === 'draw4' && card.value === 'draw4') || 
+                                    (topCard.value === 'draw2' && (card.value === 'draw2' || card.value === 'draw4'));
+          }
       } else if (gameState.currentPenalty === 0) {
           isDrawnCardPlayable = card.color === gameState.currentColor || card.color === 'wild' || card.value === topCard.value;
       }
   }
 
-  const hidePassTurn = gameState.forcePlayEnabled && isDrawnCardPlayable;
+  const hidePassTurn = (gameState.forcePlayEnabled || gameState.mode === 'no-mercy') && isDrawnCardPlayable;
 
   return (
     <LayoutGroup>
@@ -360,7 +384,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                         Normal
                       </button>
                       <button
-                        onClick={() => handleUpdateSettings({mode: 'no-mercy', limit: Math.max(20, gameState.eliminationLimit || 20)})}
+                        onClick={() => handleUpdateSettings({mode: 'no-mercy', limit: Math.max(25, gameState.eliminationLimit || 25)})}
                         className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
                           gameState.mode === 'no-mercy' ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]' : 'bg-white/5 text-white/50 hover:bg-white/10 border border-white/10'
                         }`}
@@ -376,28 +400,28 @@ export default function GameBoard({ gameState, socketId }: Props) {
                             <label className="text-sm font-bold text-neutral-300">Elimination Limit</label>
                             <div className="flex items-center gap-1 bg-black/50 border border-white/10 rounded overflow-hidden">
                                <button 
-                                  onClick={() => handleUpdateSettings({limit: Math.max(20, (gameState.eliminationLimit || 20) - 1)})}
+                                  onClick={() => handleUpdateSettings({limit: Math.max(25, (gameState.eliminationLimit || 25) - 1)})}
                                   className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white transition-colors"
                                >
                                   -
                                </button>
                                <input 
                                   type="number" 
-                                  min="20" 
+                                  min="25" 
                                   max="100" 
-                                  value={gameState.eliminationLimit || 20} 
-                                  onChange={(e) => handleUpdateSettings({limit: Math.max(20, parseInt(e.target.value) || 20)})} 
+                                  value={gameState.eliminationLimit || 25} 
+                                  onChange={(e) => handleUpdateSettings({limit: Math.max(25, parseInt(e.target.value) || 25)})} 
                                   className="bg-transparent w-12 text-center text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                                />
                                <button 
-                                  onClick={() => handleUpdateSettings({limit: Math.min(100, (gameState.eliminationLimit || 20) + 1)})}
+                                  onClick={() => handleUpdateSettings({limit: Math.min(100, (gameState.eliminationLimit || 25) + 1)})}
                                   className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white transition-colors"
                                >
                                   +
                                </button>
                             </div>
                          </div>
-                         <div className="text-[10px] text-white/40 mt-1">Players are eliminated when reaching this card limit (Min 20).</div>
+                         <div className="text-[10px] text-white/40 mt-1">Players are eliminated when reaching this card limit (Min 25).</div>
                      </div>
                  )}
                  {gameState.mode === 'normal' && (
@@ -512,26 +536,37 @@ export default function GameBoard({ gameState, socketId }: Props) {
               const N = otherPlayers.length;
               let angle = Math.PI / 2; // Default to top if only 1 player
               if (N > 1) {
-                 const startAngle = Math.PI * 1.12;
-                 const endAngle = -Math.PI * 0.12;
+                 const startAngle = Math.PI * 1.05;
+                 const endAngle = -Math.PI * 0.05;
                  angle = startAngle - (i / (N - 1)) * (startAngle - endAngle);
               }
               
               // Oval bounds
-              const top = 46 - Math.sin(angle) * 31; // %
-              const left = 50 + Math.cos(angle) * 44; // %
+              const top = 38 - Math.sin(angle) * 20; // %
+              const left = 50 + Math.cos(angle) * 38; // %
               
               const isCurrentTurn = gameState.players[gameState.currentPlayerIndex]?.id === p.id;
               
+              let baseScale = 1;
+              if (N <= 2) baseScale = 1.4;
+              else if (N === 3) baseScale = 1.25;
+              else if (N === 4) baseScale = 1.1;
+              else if (N >= 5) baseScale = 0.9;
+              
+              const finalScale = isCurrentTurn ? baseScale * 1.15 : baseScale;
+              
               return (
-                <div 
+                <motion.div 
                   key={p.id} 
-                  className={`absolute flex flex-col items-center justify-center transition-all duration-700 ease-out ${!p.connected ? 'opacity-50' : 'opacity-100'} ${isCurrentTurn ? 'scale-110 z-20' : 'scale-100 z-10'} pointer-events-auto`}
-                  style={{ top: `${top}%`, left: `${left}%`, transform: 'translate(-50%, -50%)' }}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: (!p.connected && !p.isBot) || p.eliminated || p.finishedPlace ? 0.4 : 1, scale: finalScale }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25, delay: i * 0.1 }}
+                  className={`absolute flex flex-col items-center justify-center transition-all duration-700 ease-out ${(!p.connected && !p.isBot) || p.eliminated || p.finishedPlace ? 'grayscale' : ''} ${isCurrentTurn ? 'z-20' : 'z-10'} pointer-events-auto`}
+                  style={{ top: `${top}%`, left: `${left}%`, transform: `translate(-50%, -50%)` }}
                 >
                   {/* Name Tag */}
-                  <div className="z-20 text-[10px] font-bold text-white/90 truncate max-w-[120px] bg-black/60 px-3 py-1 rounded-full border border-white/10 shadow-lg mb-1 whitespace-nowrap">
-                    {p.name}
+                  <div className="z-20 flex items-center gap-1 text-[10px] font-bold text-white/90 truncate max-w-[140px] bg-black/60 px-3 py-1 rounded-full border border-white/10 shadow-lg mb-1 whitespace-nowrap">
+                    {p.name} {p.eliminated && <span className="text-red-500">❌</span>} {p.finishedPlace && <span className="text-yellow-500">🏆</span>}
                   </div>
                   
                   {/* Avatar */}
@@ -559,7 +594,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                      </button>
                   )}
                   {p.eliminated && <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg z-40"><span className="text-red-500 font-black text-xs rotate-12 uppercase">Eliminated</span></div>}
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -568,13 +603,15 @@ export default function GameBoard({ gameState, socketId }: Props) {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12 z-10">
             {/* Deck */}
             <div className={`relative ${isMyTurn && !gameState.drawnCardThisTurn ? 'cursor-pointer group' : 'opacity-50 pointer-events-none'}`} onClick={handleDraw}>
-              <div className="w-24 h-36 bg-[#1a1a1a] border border-white/20 rounded-lg flex items-center justify-center shadow-2xl rotate-2 transition-transform group-hover:rotate-0">
-                 <div className="w-16 h-24 border-[12px] border-red-600 rounded-full flex items-center justify-center">
-                    <span className="text-red-600 font-black text-2xl tracking-tighter">UNO</span>
-                 </div>
+              <div className="rotate-2 transition-transform group-hover:rotate-0 drop-shadow-2xl">
+                 <CardBack size="md" />
               </div>
-              <div className="absolute -top-2 -left-1 w-24 h-36 bg-[#1a1a1a] border border-white/20 rounded-lg -z-10 translate-x-1 translate-y-1"></div>
-              <div className="absolute -top-4 -left-2 w-24 h-36 bg-[#1a1a1a] border border-white/20 rounded-lg -z-20 translate-x-2 translate-y-2"></div>
+              <div className="absolute -top-2 -left-1 -z-10 translate-x-1 translate-y-1">
+                 <CardBack size="md" className="opacity-80" />
+              </div>
+              <div className="absolute -top-4 -left-2 -z-20 translate-x-2 translate-y-2">
+                 <CardBack size="md" className="opacity-60" />
+              </div>
               
               <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-widest text-white/40 uppercase whitespace-nowrap">Draw Pile</div>
               {isMyTurn && !gameState.drawnCardThisTurn && (
@@ -599,25 +636,27 @@ export default function GameBoard({ gameState, socketId }: Props) {
 
             {/* Discard Pile */}
             <div className="relative w-24 h-36">
-              {gameState.discardPile.slice(-3).map((card, i, arr) => (
-                <motion.div 
-                  key={card.id}
-                  layoutId={card.id}
-                  className="absolute top-0 left-0"
-                  style={{ zIndex: i }}
-                  initial={{ scale: 1.5, opacity: 0, y: -100, rotate: Math.random() * 20 - 10 }}
-                  animate={{ 
-                    scale: 1, 
-                    opacity: 1, 
-                    rotate: (i - arr.length + 1) * 8 - 6,
-                    x: (i - arr.length + 1) * 2,
-                    y: (i - arr.length + 1) * 2
-                  }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                >
-                  <PlayingCard card={card} isCurrentColor={i === arr.length - 1 ? gameState.currentColor : undefined} />
-                </motion.div>
-              ))}
+              <AnimatePresence>
+                {gameState.discardPile.slice(-3).map((card, i, arr) => (
+                  <motion.div 
+                    key={card.id}
+                    layoutId={card.id}
+                    className="absolute top-0 left-0"
+                    style={{ zIndex: i }}
+                    initial={{ scale: 1.5, opacity: 0, y: -100, rotate: Math.random() * 20 - 10 }}
+                    animate={{ 
+                      scale: 1, 
+                      opacity: 1, 
+                      rotate: (i - arr.length + 1) * 8 - 6,
+                      x: (i - arr.length + 1) * 2,
+                      y: (i - arr.length + 1) * 2
+                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  >
+                    <PlayingCard card={card} isCurrentColor={i === arr.length - 1 ? gameState.currentColor : undefined} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-widest text-white/40 uppercase whitespace-nowrap">Discard</div>
             </div>
           </div>
@@ -664,23 +703,36 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div 
                  onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
-                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-4 max-w-6xl mx-auto items-center overflow-x-auto h-full pt-16 pb-8 hide-scrollbar">
-               <AnimatePresence>
-                 {myPlayer.hand.map((card, index) => {
-                   
-                   const isExactMatch = card.color === gameState.discardPile[gameState.discardPile.length-1].color && card.value === gameState.discardPile[gameState.discardPile.length-1].value && card.color !== 'wild';
+                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-4 max-w-6xl mx-auto items-center overflow-x-auto h-full pt-16 pb-8 hide-scrollbar justify-center">
+               
+               {myPlayer.eliminated ? (
+                   <div className="text-4xl font-black text-red-500 tracking-widest drop-shadow-lg">ELIMINATED</div>
+               ) : myPlayer.finishedPlace ? (
+                   <div className="text-4xl font-black text-yellow-500 tracking-widest drop-shadow-lg">FINISHED #{myPlayer.finishedPlace}</div>
+               ) : (
+                 <AnimatePresence>
+                   {myPlayer.hand.filter(c => !playingCardIds.includes(c.id)).map((card, index) => {
+                     
+                     const isExactMatch = card.color === gameState.discardPile[gameState.discardPile.length-1].color && card.value === gameState.discardPile[gameState.discardPile.length-1].value && card.color !== 'wild';
                    const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? now <= gameState.jumpInExpiry : false);
                    
                    let isValid = false;
                    if (isMyTurn) {
+                      const topCard = gameState.discardPile[gameState.discardPile.length-1];
                       if (gameState.drawnCardThisTurn) {
                           isValid = card.id === gameState.drawnCardThisTurn.id;
                       } else {
                           if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
-                              isValid = (gameState.discardPile[gameState.discardPile.length-1].value === 'draw4' && card.value === 'draw4') || 
-                                        (gameState.discardPile[gameState.discardPile.length-1].value === 'draw2' && (card.value === 'draw2' || card.value === 'draw4'));
+                              if (gameState.mode === 'no-mercy') {
+                                  const topDrawVal = getDrawValue(topCard.value);
+                                  const playDrawVal = getDrawValue(card.value);
+                                  isValid = topDrawVal > 0 && playDrawVal >= topDrawVal;
+                              } else {
+                                  isValid = (topCard.value === 'draw4' && card.value === 'draw4') || 
+                                            (topCard.value === 'draw2' && (card.value === 'draw2' || card.value === 'draw4'));
+                              }
                           } else if (gameState.currentPenalty === 0) {
-                              isValid = card.color === gameState.currentColor || card.color === 'wild' || card.value === gameState.discardPile[gameState.discardPile.length-1].value;
+                              isValid = card.color === gameState.currentColor || card.color === 'wild' || card.value === topCard.value;
                           }
                       }
                    } else if (canJumpIn) {
@@ -712,6 +764,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                    );
                  })}
                </AnimatePresence>
+               )}
              </div>
           </div>
         </div>
@@ -755,7 +808,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
             >
               <h3 className="text-2xl font-bold mb-6 text-center">Choose Player to Swap Hands</h3>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {otherPlayers.map(p => (
+                {otherPlayers.filter(p => !p.eliminated && !p.finishedPlace && (p.connected || p.isBot)).map(p => (
                   <button
                     key={p.id}
                     onClick={() => onPlayerChosen(p.id)}

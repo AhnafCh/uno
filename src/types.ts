@@ -1,5 +1,5 @@
 export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
-export type CardValue = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'draw4';
+export type CardValue = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'skip' | 'reverse' | 'draw2' | 'draw4' | 'discard_all' | 'skip_everyone' | 'wild' | 'wild_reverse_draw4' | 'wild_draw6' | 'wild_draw10' | 'wild_color_roulette';
 
 export interface Card {
   id: string;
@@ -55,4 +55,15 @@ export interface ChatMessage {
   senderName: string;
   message: string;
   timestamp: number;
+}
+
+export function getDrawValue(value: CardValue): number {
+    switch (value) {
+        case 'draw2': return 2;
+        case 'draw4': return 4;
+        case 'wild_reverse_draw4': return 4;
+        case 'wild_draw6': return 6;
+        case 'wild_draw10': return 10;
+        default: return 0;
+    }
 }
