@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { socket } from './socket.ts';
 import { GameState, GameMode } from './types.ts';
 import Lobby from './components/Lobby.tsx';
@@ -51,11 +52,17 @@ export default function App() {
         </div>
       )}
       
-      {!gameState ? (
-        <Lobby onJoin={handleJoin} />
-      ) : (
-        <GameBoard gameState={gameState} socketId={socket.id || ''} />
-      )}
+      <AnimatePresence mode="wait">
+        {!gameState ? (
+          <motion.div key="lobby" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col">
+            <Lobby onJoin={handleJoin} />
+          </motion.div>
+        ) : (
+          <motion.div key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="flex-1 flex flex-col h-full">
+            <GameBoard gameState={gameState} socketId={socket.id || ''} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

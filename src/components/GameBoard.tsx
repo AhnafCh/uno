@@ -2,52 +2,19 @@ import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../useAudio';
 import { GameState, Card, CardColor, getDrawValue } from '../types.ts';
+import { getColorHex } from '../utils.ts';
 import { socket } from '../socket.ts';
 import PlayingCard from './PlayingCard.tsx';
 import Chat from './Chat.tsx';
 import { Users, LogOut, Info } from 'lucide-react';
 import CardBack from './CardBack.tsx';
+import OpponentHand from './OpponentHand.tsx';
+import ColorPickerModal from './ColorPickerModal.tsx';
+import PlayerPickerModal from './PlayerPickerModal.tsx';
 
 interface Props {
   gameState: GameState;
   socketId: string;
-}
-
-
-function OpponentHand({ count }: { count: number }) {
-  const displayCount = Math.min(count, 13);
-  const spread = Math.min(100, displayCount * 10);
-  const startAngle = -spread / 2;
-  const step = displayCount > 1 ? spread / (displayCount - 1) : 0;
-  
-  return (
-    <div className="relative w-24 h-32 flex justify-center pointer-events-none mt-4">
-      <AnimatePresence>
-        {Array.from({ length: displayCount }).map((_, i) => (
-           <motion.div 
-             key={i} 
-             className="absolute origin-bottom top-4 drop-shadow-md"
-             initial={{ opacity: 0, scale: 0.5, y: -20 }}
-             animate={{ 
-               opacity: 1, 
-               scale: 1, 
-               y: 0,
-               rotate: startAngle + step * i,
-               x: (i - displayCount/2) * 1.5
-             }}
-             exit={{ opacity: 0, scale: 0.5, y: -20 }}
-             transition={{ type: "spring", stiffness: 300, damping: 25, delay: i * 0.05 }}
-             style={{ zIndex: i }}
-           >
-             <CardBack size="sm" />
-           </motion.div>
-        ))}
-      </AnimatePresence>
-      <div className="absolute bottom-0 bg-black/90 px-3 py-1 rounded text-white text-xs font-black z-50 shadow-xl border border-white/10">
-         {count}
-      </div>
-    </div>
-  );
 }
 
 export default function GameBoard({ gameState, socketId }: Props) {
@@ -771,78 +738,22 @@ export default function GameBoard({ gameState, socketId }: Props) {
       )}
 
       {/* Color Picker Modal */}
-      <AnimatePresence>
-        {showColorPicker && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <motion.div 
-               initial={{ scale: 0.8, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               exit={{ scale: 0.8, opacity: 0 }}
-               className="bg-neutral-900 p-8 rounded-2xl shadow-2xl border border-white/10"
-            >
-              <h3 className="text-2xl font-bold mb-6 text-center">Choose Color</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {(['red', 'blue', 'green', 'yellow'] as CardColor[]).map(color => (
-                  <button
-                    key={color}
-                    onClick={() => onColorChosen(color)}
-                    className="w-24 h-24 rounded-xl shadow-lg transition-transform hover:scale-110 active:scale-95"
-                    style={{ backgroundColor: getColorHex(color) }}
-                  ></button>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ColorPickerModal 
+        show={!!showColorPicker} 
+        onColorChosen={onColorChosen} 
+      />
 
       {/* Player Picker Modal (for 7 in No Mercy) */}
-      <AnimatePresence>
-        {showPlayerPicker && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <motion.div 
-               initial={{ scale: 0.8, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               exit={{ scale: 0.8, opacity: 0 }}
-               className="bg-neutral-900 p-8 rounded-2xl shadow-2xl border border-white/10 max-w-md w-full"
-            >
-              <h3 className="text-2xl font-bold mb-6 text-center">Choose Player to Swap Hands</h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {otherPlayers.filter(p => !p.eliminated && !p.finishedPlace && (p.connected || p.isBot)).map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => onPlayerChosen(p.id)}
-                    className="w-full text-left p-4 bg-white/5 hover:bg-white/10 rounded-lg flex justify-between items-center transition"
-                  >
-                    <span className="font-bold">{p.name}</span>
-                    <span className="text-sm text-neutral-400">{p.hand.length} Cards</span>
-                  </button>
-                ))}
-              </div>
-              <button 
-                 onClick={() => setShowPlayerPicker(null)}
-                 className="mt-6 w-full py-3 bg-neutral-800 hover:bg-neutral-700 rounded-lg font-bold"
-              >
-                 Cancel
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <PlayerPickerModal 
+        show={!!showPlayerPicker} 
+        players={otherPlayers.filter(p => !p.eliminated && !p.finishedPlace && (p.connected || p.isBot))} 
+        onPlayerChosen={onPlayerChosen} 
+        onCancel={() => setShowPlayerPicker(null)} 
+      />
 
       {/* Chat Sidebar */}
       <Chat gameState={gameState} socketId={socketId} />
     </div>
     </LayoutGroup>
   );
-}
-
-function getColorHex(color: string) {
-  switch (color) {
-    case 'red': return '#dc2626';
-    case 'blue': return '#2563eb';
-    case 'green': return '#16a34a';
-    case 'yellow': return '#eab308';
-    default: return '#171717';
-  }
 }
