@@ -1,15 +1,15 @@
 import { Server, Socket } from "socket.io";
 const AVATARS = [
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Felix",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Jasper",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Midnight",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Snowball",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Toby",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Ginger",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Oliver",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Milo",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Leo",
-  "https://api.dicebear.com/9.x/bottts/svg?seed=Simba"
+  "https://robohash.org/Felix.svg?set=set4",
+  "https://robohash.org/Bella.svg?set=set4",
+  "https://robohash.org/Charlie.svg?set=set4",
+  "https://robohash.org/Lucy.svg?set=set4",
+  "https://robohash.org/Max.svg?set=set4",
+  "https://robohash.org/Daisy.svg?set=set4",
+  "https://robohash.org/Rocky.svg?set=set4",
+  "https://robohash.org/Milo.svg?set=set4",
+  "https://robohash.org/Leo.svg?set=set4",
+  "https://robohash.org/Simba.svg?set=set4"
 ];
 
 function getUnusedAvatar(room) {
@@ -21,6 +21,14 @@ function getUnusedAvatar(room) {
 import { Card, CardColor, CardValue, GameState, Player, ChatMessage, GameMode, getDrawValue } from "../types.ts";
 
 const rooms = new Map<string, GameState>();
+
+
+function formatCardName(color, value) {
+    const formattedColor = color.charAt(0).toUpperCase() + color.slice(1);
+    let formattedValue = value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    formattedValue = formattedValue.replace(/([a-zA-Z])(\d+)/g, '$1 $2');
+    return `${formattedColor} ${formattedValue}`;
+}
 
 const COLORS: CardColor[] = ['red', 'blue', 'green', 'yellow'];
 const NORMAL_VALUES: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw2'];
@@ -170,6 +178,7 @@ function checkWinner(room: GameState, io: Server): boolean {
              p.finishedPlace = place;
              if (!room.winners) room.winners = [];
              room.winners.push({ name: p.name, place });
+             if (!room.winner) room.winner = p.name;
         }
         room.status = 'finished';
         io.to(room.id).emit("state_update", room);
@@ -185,6 +194,10 @@ function checkWinner(room: GameState, io: Server): boolean {
 }
 
 function nextPlayerIndex(room: GameState, skipCount = 1) {
+  // Prevent infinite loop if game is over or everyone is inactive
+  const activePlayers = room.players.filter(p => !p.eliminated && !p.finishedPlace && (p.connected || p.isBot));
+  if (activePlayers.length === 0) return room.currentPlayerIndex;
+
   let next = room.currentPlayerIndex;
   for (let i = 0; i < skipCount; i++) {
     do {
@@ -199,7 +212,7 @@ function nextPlayerIndex(room: GameState, skipCount = 1) {
 }
 
 
-function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId: string, chosenColor?: CardColor, socket?: Socket) {
+function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId: string, chosenColor?: CardColor, socket?: Socket, topCardId?: string) {
   const room = rooms.get(roomId);
   if (!room || room.status !== 'playing') return;
   const player = room.players[playerIndex];
@@ -212,7 +225,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   const card = player.hand[cardIndex];
   const topCard = room.discardPile[room.discardPile.length - 1];
 
-  const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild';
+  const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild' && (topCardId ? topCard.id === topCardId : true);
   const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn && room.jumpInExpiry && Date.now() <= room.jumpInExpiry;
 
   if (!isTurn && !canJumpIn) {
@@ -226,6 +239,12 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
       room.currentPlayerIndex = playerIndex;
   room.turnStartTime = Date.now();
       room.lastActionMessage = `${player.name} jumped in!`;
+  }
+
+  
+  if (room.drawnCardThisTurn && card.id !== room.drawnCardThisTurn.id) {
+      socket?.emit("error", "You can only play the drawn card.");
+      return;
   }
 
   const isValidColor = card.color === room.currentColor || card.color === 'wild';
@@ -253,7 +272,8 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   room.discardPile.push(card);
   room.currentColor = (card.color === 'wild' && chosenColor) ? chosenColor : card.color;
    room.jumpInExpiry = Date.now() + 5000;
-  room.lastActionMessage = `${player.name} played ${card.color !== 'wild' ? card.color : chosenColor} ${card.value}`;
+  const displayColor = card.color !== 'wild' ? card.color : (chosenColor || 'wild');
+  room.lastActionMessage = `${player.name} played ${formatCardName(displayColor, card.value)}`;
   room.drawnCardThisTurn = null; // Clear draw state
   room.jumpInExpiry = Date.now() + 5000;
 
@@ -434,7 +454,7 @@ function executeDrawCard(roomId: string, io: Server, playerIndex: number) {
 }
 
 
-function executePlay7(roomId: string, io: Server, playerIndex: number, targetPlayerId: string, cardId: string, chosenColor?: CardColor, socket?: Socket) {
+function executePlay7(roomId: string, io: Server, playerIndex: number, targetPlayerId: string, cardId: string, chosenColor?: CardColor, socket?: Socket, topCardId?: string) {
    const room = rooms.get(roomId);
    if (!room || room.status !== 'playing') return;
        if (room.mode !== 'no-mercy' && !room.rule70Enabled) return;
@@ -461,7 +481,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
       return;
    }
    
-   const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild';
+   const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild' && (topCardId ? topCard.id === topCardId : true);
    const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn && room.jumpInExpiry && Date.now() <= room.jumpInExpiry;
 
    if (!isTurn && !canJumpIn) {
@@ -512,13 +532,13 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
   triggerBotIfTurn(roomId, io);
 }
 
-function executeBotMove(roomId: string, io: Server) {
+function executeBotMove(roomId: string, io: Server, forceAutoPlay: boolean = false) {
   const room = rooms.get(roomId);
   if (!room || room.status !== 'playing') return;
 
   const playerIndex = room.currentPlayerIndex;
   const player = room.players[playerIndex];
-  if (!player) return;
+  if (!player || (!player.isBot && !forceAutoPlay)) return;
   
   // 1. Check if bot needs to call UNO
   if (player.hand.length <= 2 && !player.unoCalled) {
@@ -660,7 +680,7 @@ export function setupGameLogic(io: Server) {
                 const player = room.players[room.currentPlayerIndex];
                 if (player && !player.isBot) {
                    room.lastActionMessage = `${player.name} ran out of time! Auto-playing...`;
-                   executeBotMove(roomId, io);
+                   executeBotMove(roomId, io, true);
                 }
             }
         }
@@ -718,11 +738,17 @@ export function setupGameLogic(io: Server) {
          return;
       }
 
+      // Shuffle players array
+      for (let i = room.players.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [room.players[i], room.players[j]] = [room.players[j], room.players[i]];
+      }
+
       room.deck = generateDeck(room.mode);
       room.players.forEach(p => p.hand = drawCards(room, 7));
       
       let topCard = room.deck.pop()!;
-      while (topCard.color === 'wild') {
+      while (topCard.color === 'wild' || topCard.value === 'draw2' || topCard.value === 'draw4' || topCard.value === 'reverse' || topCard.value === 'skip' || topCard.value === 'skip_everyone' || topCard.value === 'wild_reverse_draw4' || topCard.value === 'wild_draw6' || topCard.value === 'wild_draw10' || topCard.value === 'wild_color_roulette') {
         room.deck.unshift(topCard);
         topCard = room.deck.pop()!;
       }
@@ -730,9 +756,8 @@ export function setupGameLogic(io: Server) {
       room.currentColor = topCard.color;
       
       room.status = 'playing';
+      room.currentPlayerIndex = Math.floor(Math.random() * room.players.length);
       room.turnStartTime = Date.now();
-      room.currentPlayerIndex = 0;
-  room.turnStartTime = Date.now(); // Host starts
       room.direction = 1;
       room.currentPenalty = 0;
       room.winner = null;
@@ -750,7 +775,7 @@ export function setupGameLogic(io: Server) {
         if (playerIndex === -1 || playerIndex !== room.currentPlayerIndex) return;
         if (room.drawnCardThisTurn) {
             if (room.forcePlayEnabled || room.mode === 'no-mercy') {
-                const hasPlayable = room.players[playerIndex].hand.some(c => isCardPlayable(room, c, room.currentPenalty > 0));
+                const hasPlayable = room.players[playerIndex].hand.some(c => (room.drawnCardThisTurn ? c.id === room.drawnCardThisTurn.id : true) && isCardPlayable(room, c, room.currentPenalty > 0));
                 if (hasPlayable) {
                     socket.emit("error", "You have playable cards.");
                     return;
@@ -889,12 +914,12 @@ export function setupGameLogic(io: Server) {
     });
 
 
-    socket.on("play_card", ({ roomId, cardId, chosenColor }: { roomId: string; cardId: string; chosenColor?: CardColor }) => {
+    socket.on("play_card", ({ roomId, cardId, chosenColor, topCardId }: { roomId: string; cardId: string; chosenColor?: CardColor; topCardId?: string }) => {
       const room = rooms.get(roomId);
       if (!room || room.status !== 'playing') return;
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
       if (playerIndex === -1) return;
-      executePlayCard(roomId, io, playerIndex, cardId, chosenColor, socket);
+      executePlayCard(roomId, io, playerIndex, cardId, chosenColor, socket, topCardId);
     });
 
     socket.on("draw_card", (roomId: string) => {
@@ -925,13 +950,13 @@ export function setupGameLogic(io: Server) {
     });
     
     // In No Mercy, 7 swaps hand with selected player
-    socket.on("swap_hand", ({ roomId, targetPlayerId, cardId, chosenColor }: { roomId: string, targetPlayerId: string, cardId: string, chosenColor?: CardColor }) => {
+    socket.on("swap_hand", ({ roomId, targetPlayerId, cardId, chosenColor, topCardId }: { roomId: string, targetPlayerId: string, cardId: string, chosenColor?: CardColor, topCardId?: string }) => {
        const room = rooms.get(roomId);
        if (!room || room.status !== 'playing') return;
        if (room.mode !== 'no-mercy' && !room.rule70Enabled) return;
        const playerIndex = room.players.findIndex(p => p.id === socket.id);
        if (playerIndex === -1) return;
-       executePlay7(roomId, io, playerIndex, targetPlayerId, cardId, chosenColor, socket);
+       executePlay7(roomId, io, playerIndex, targetPlayerId, cardId, chosenColor, socket, topCardId);
     });
 
 
@@ -962,7 +987,7 @@ export function setupGameLogic(io: Server) {
              const playerIndex = room.players.findIndex(p => p.id === socket.id);
              if (playerIndex === room.currentPlayerIndex && room.status === 'playing') {
                    room.lastActionMessage = `${player.name} disconnected! Auto-playing...`;
-                   executeBotMove(roomId, io);
+                   executeBotMove(roomId, io, true);
              }
              io.to(roomId).emit("state_update", room);
           }

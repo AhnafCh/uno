@@ -141,7 +141,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
     }
 
     setPlayingCardIds(prev => [...prev, card.id]);
-    socket.emit('play_card', { roomId: gameState.id, cardId: card.id });
+    socket.emit('play_card', { roomId: gameState.id, cardId: card.id, topCardId: gameState.discardPile[gameState.discardPile.length - 1]?.id });
   };
 
   const onColorChosen = (color: CardColor) => {
@@ -156,7 +156,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
     }
 
     setPlayingCardIds(prev => [...prev, cardId]);
-    socket.emit('play_card', { roomId: gameState.id, cardId, chosenColor: color });
+    socket.emit('play_card', { roomId: gameState.id, cardId, chosenColor: color, topCardId: gameState.discardPile[gameState.discardPile.length - 1]?.id });
   };
 
   const onPlayerChosen = (targetPlayerId: string) => {
@@ -195,6 +195,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
   if (myPlayer) {
       const topCard = gameState.discardPile[gameState.discardPile.length - 1];
       hasPlayableCard = myPlayer.hand.some(card => {
+          if (gameState.drawnCardThisTurn && card.id !== gameState.drawnCardThisTurn.id) return false;
           if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
               if (gameState.mode === 'no-mercy') {
                   const topDrawVal = getDrawValue(topCard.value);
@@ -598,14 +599,13 @@ export default function GameBoard({ gameState, socketId }: Props) {
             </motion.div>
 
             {/* Turn direction indicator / Stack Info */}
-            <div className="flex flex-col items-center justify-center mx-4">
-              {gameState.currentPenalty > 0 ? (
-                <>
+            <div className="flex flex-col items-center justify-center mx-4 relative w-36 h-36">
+              <div className={`absolute inset-0 border-[8px] border-dashed rounded-full -z-30 opacity-80 pointer-events-none transition-transform duration-1000 ${gameState.direction === 1 ? 'animate-[spin_10s_linear_infinite]' : 'animate-[spin_10s_linear_reverse_infinite]'}`} style={{ borderColor: getColorHex(gameState.currentColor), boxShadow: `0 0 40px ${getColorHex(gameState.currentColor)}60, inset 0 0 40px ${getColorHex(gameState.currentColor)}60` }}>
+              </div>
+              {gameState.currentPenalty > 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <div className="text-red-500 text-4xl font-black mb-1 drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]">+{gameState.currentPenalty}</div>
-                  <div className="text-[10px] font-bold text-white/50 tracking-widest uppercase">Current Stack</div>
-                </>
-              ) : (
-                <div className={`w-36 h-36 border-[8px] border-dashed rounded-full -z-30 opacity-80 pointer-events-none transition-transform duration-1000 ${gameState.direction === 1 ? 'animate-[spin_10s_linear_infinite]' : 'animate-[spin_10s_linear_reverse_infinite]'}`} style={{ borderColor: getColorHex(gameState.currentColor), boxShadow: `0 0 40px ${getColorHex(gameState.currentColor)}60, inset 0 0 40px ${getColorHex(gameState.currentColor)}60` }}>
+                  <div className="text-[10px] font-bold text-white/50 tracking-widest uppercase bg-black/60 px-2 py-0.5 rounded">Stack</div>
                 </div>
               )}
             </div>
@@ -682,7 +682,8 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div 
                  onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
-                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-4 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar justify-center">
+                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-8 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar"
+                 style={{ justifyContent: 'safe center' }}>
                
                {myPlayer.eliminated ? (
                    <div className="text-4xl font-black text-red-500 tracking-widest drop-shadow-lg">ELIMINATED</div>
@@ -712,6 +713,9 @@ export default function GameBoard({ gameState, socketId }: Props) {
                           }
                    } else if (canJumpIn) {
                       isValid = true;
+                   }
+                   if (gameState.drawnCardThisTurn && card.id !== gameState.drawnCardThisTurn.id) {
+                      isValid = false;
                    }
 
 
