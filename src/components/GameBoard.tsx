@@ -191,25 +191,27 @@ export default function GameBoard({ gameState, socketId }: Props) {
   }
 
 
-  let isDrawnCardPlayable = false;
-  if (gameState.drawnCardThisTurn && myPlayer) {
-      const card = gameState.drawnCardThisTurn;
+    let hasPlayableCard = false;
+  if (myPlayer) {
       const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-      if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
-          if (gameState.mode === 'no-mercy') {
-              const topDrawVal = getDrawValue(topCard.value);
-              const playDrawVal = getDrawValue(card.value);
-              isDrawnCardPlayable = topDrawVal > 0 && playDrawVal >= topDrawVal;
-          } else {
-              isDrawnCardPlayable = (topCard.value === 'draw4' && card.value === 'draw4') || 
-                                    (topCard.value === 'draw2' && (card.value === 'draw2' || card.value === 'draw4'));
+      hasPlayableCard = myPlayer.hand.some(card => {
+          if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
+              if (gameState.mode === 'no-mercy') {
+                  const topDrawVal = getDrawValue(topCard.value);
+                  const playDrawVal = getDrawValue(card.value);
+                  return topDrawVal > 0 && playDrawVal >= topDrawVal;
+              } else {
+                  return (topCard.value === 'draw4' && card.value === 'draw4') ||
+                         (topCard.value === 'draw2' && (card.value === 'draw2' || card.value === 'draw4'));
+              }
+          } else if (gameState.currentPenalty === 0) {
+              return card.color === gameState.currentColor || card.color === 'wild' || card.value === topCard.value;
           }
-      } else if (gameState.currentPenalty === 0) {
-          isDrawnCardPlayable = card.color === gameState.currentColor || card.color === 'wild' || card.value === topCard.value;
-      }
+          return false;
+      });
   }
 
-  const hidePassTurn = (gameState.forcePlayEnabled || gameState.mode === 'no-mercy') && isDrawnCardPlayable;
+  const hidePassTurn = (gameState.forcePlayEnabled || gameState.mode === 'no-mercy') && hasPlayableCard;
 
   return (
     <LayoutGroup>
@@ -301,9 +303,12 @@ export default function GameBoard({ gameState, socketId }: Props) {
             <div className="space-y-2 mb-8 flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-[200px]">
               {gameState.players.map((p, i) => (
                 <div key={p.id} className="flex justify-between items-center bg-white/5 p-3 rounded relative">
-                  <span className="font-medium flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${p.connected ? 'bg-green-500' : 'bg-neutral-500'}`}></span>
-                    {p.name} {p.id === socketId && "(You)"} {p.isBot && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded uppercase font-bold">Bot</span>}
+                  <span className="font-medium flex items-center gap-3">
+                    <div className="relative w-8 h-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+                        {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-xs">{p.name.substring(0, 2).toUpperCase()}</span>}
+                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#121214] ${p.connected ? 'bg-green-500' : 'bg-neutral-500'}`}></span>
+                    </div>
+                    {p.name} {p.id === socketId && <span className="text-white/40 text-xs italic">(You)</span>} {p.isBot && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded uppercase font-bold">Bot</span>}
                   </span>
                   <div className="flex items-center gap-2">
                     {p.isHost && <span className="text-yellow-500 text-xs font-bold uppercase">Host</span>}
@@ -479,7 +484,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
       ) : (
         <div className="flex-1 relative overflow-hidden flex flex-col">
            {/* Last Action Toast */}
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
             <AnimatePresence mode="wait">
                {gameState.lastActionMessage && (
                   <motion.div
@@ -503,14 +508,14 @@ export default function GameBoard({ gameState, socketId }: Props) {
               const N = otherPlayers.length;
               let angle = Math.PI / 2; // Default to top if only 1 player
               if (N > 1) {
-                 const startAngle = Math.PI * 1.05;
-                 const endAngle = -Math.PI * 0.05;
+                 const startAngle = Math.PI * 0.9;
+                 const endAngle = Math.PI * 0.1;
                  angle = startAngle - (i / (N - 1)) * (startAngle - endAngle);
               }
               
               // Oval bounds
-              const top = 38 - Math.sin(angle) * 20; // %
-              const left = 50 + Math.cos(angle) * 38; // %
+              const top = 32 - Math.sin(angle) * 22; // %
+              const left = 50 + Math.cos(angle) * 42; // %
               
               const isCurrentTurn = gameState.players[gameState.currentPlayerIndex]?.id === p.id;
               
@@ -538,7 +543,11 @@ export default function GameBoard({ gameState, socketId }: Props) {
                   
                   {/* Avatar */}
                   <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center text-sm font-black shadow-2xl transition-colors duration-500 z-10 ${isCurrentTurn ? 'bg-yellow-500/30 border-2 border-yellow-400 ring-4 ring-yellow-500/30 shadow-[0_0_30px_rgba(234,179,8,0.5)] text-yellow-300' : 'bg-[#1a1a1a] border-2 border-white/20 text-white/70'}`}>
-                    <span>{p.name.substring(0, 2).toUpperCase()}</span>
+                    {p.avatar ? (
+                        <img src={p.avatar} alt={p.name} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                        <span>{p.name.substring(0, 2).toUpperCase()}</span>
+                    )}
                   </div>
                   
                   {/* Cards */}
@@ -569,7 +578,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
           {/* Center Area (Deck & Discard) */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12 z-10">
             {/* Deck */}
-            <div className={`relative ${isMyTurn && !gameState.drawnCardThisTurn ? 'cursor-pointer group' : 'opacity-50 pointer-events-none'}`} onClick={handleDraw}>
+            <motion.div whileHover={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 1.05, y: -5 } : {}} whileTap={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 0.95 } : {}} className={`relative ${isMyTurn && !gameState.drawnCardThisTurn ? 'cursor-pointer group hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] transition-all' : 'opacity-70 pointer-events-none'}`} onClick={handleDraw}>
               <div className="rotate-2 transition-transform group-hover:rotate-0 drop-shadow-2xl">
                  <CardBack size="md" />
               </div>
@@ -586,7 +595,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                     {gameState.currentPenalty > 0 ? `Draw ${gameState.currentPenalty}` : 'Draw Card'}
                  </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Turn direction indicator / Stack Info */}
             <div className="flex flex-col items-center justify-center mx-4">
@@ -629,20 +638,23 @@ export default function GameBoard({ gameState, socketId }: Props) {
           </div>
 
           {/* My Hand */}
-          <div className="h-72 bg-[#08080a] border-t border-white/10 flex items-center justify-center relative mt-auto z-40">
+          <div className={`h-52 border-t flex items-center justify-center relative mt-auto z-40 transition-all duration-500 ${isMyTurn ? 'bg-[#15120a] border-yellow-500/50 shadow-[0_-15px_50px_rgba(234,179,8,0.15)]' : 'bg-[#08080a] border-white/10'}`}>
              {myPlayer.eliminated && <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center"><span className="text-red-500 font-black text-6xl tracking-tighter shadow-2xl">ELIMINATED</span></div>}
              
-             <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#0a0a0c] border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2 z-10">
-                {isMyTurn && <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>}
-                {isMyTurn ? "YOUR TURN" : "WAITING..."} <span className="ml-2 bg-black/50 px-2 py-1 rounded text-white border border-white/20 text-xs shadow-md">{myPlayer.hand.length} CARDS</span>
+             <div className={`absolute left-1/2 -translate-x-1/2 px-6 py-2 rounded-full uppercase flex items-center gap-3 z-10 transition-all duration-300 shadow-2xl ${isMyTurn ? '-top-6 bg-yellow-500 text-black border-2 border-yellow-300 scale-110 shadow-yellow-500/50 font-black tracking-widest text-sm' : '-top-4 bg-[#0a0a0c] border border-white/10 text-[10px] font-bold text-white/40 tracking-widest'}`}>
+                <div className={`w-8 h-8 rounded-full overflow-hidden bg-black/20 flex items-center justify-center ${isMyTurn ? 'border-2 border-black/30' : 'border border-white/10'}`}>
+                    {myPlayer.avatar ? <img src={myPlayer.avatar} alt={myPlayer.name} className="w-full h-full object-cover" /> : <span>{myPlayer.name.substring(0,2).toUpperCase()}</span>}
+                </div>
+                {isMyTurn && <div className="w-3 h-3 rounded-full bg-black animate-ping"></div>}
+                {isMyTurn ? "YOUR TURN!" : "WAITING..."} <span className={`ml-2 px-2 py-1 rounded text-xs shadow-md ${isMyTurn ? 'bg-black/20 text-black border border-black/20' : 'bg-black/50 text-white border border-white/20'}`}>{myPlayer.hand.length} CARDS</span>
                 {timeLeft !== null && (
-                   <span className={`ml-2 px-2 py-0.5 rounded ${timeLeft <= 5 ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/10 text-white'}`}>
+                   <span className={`ml-2 px-2 py-0.5 rounded ${timeLeft <= 5 ? 'bg-red-500 text-white font-bold animate-pulse' : (isMyTurn ? 'bg-black/20 text-black font-bold' : 'bg-white/10 text-white')}`}>
                       {timeLeft}s
                    </span>
                 )}
              </div>
 
-             <div className="absolute bottom-48 right-6 flex flex-col gap-3 z-50">
+             <div className="absolute bottom-[110%] right-6 flex flex-col gap-3 z-50">
                  {isMyTurn && gameState.drawnCardThisTurn && !hidePassTurn && !myPlayer.eliminated && (
                     <button 
                        onClick={() => socket.emit('pass_turn', gameState.id)}
@@ -651,7 +663,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                       PASS TURN
                     </button>
                  )}
-                 {myPlayer.hand.length > 0 && myPlayer.hand.length <= 2 && !myPlayer.unoCalled && !myPlayer.eliminated && (
+                 {isMyTurn && myPlayer.hand.length > 0 && myPlayer.hand.length <= 2 && !myPlayer.unoCalled && !myPlayer.eliminated && (
                     <button 
                       onClick={() => socket.emit('call_uno', gameState.id)}
                       className="w-32 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs italic tracking-tighter rounded-md shadow-lg shadow-red-600/20 border-b-4 border-red-800 active:border-b-0 active:translate-y-1 transition-all animate-pulse"
@@ -670,7 +682,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div 
                  onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
-                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-4 max-w-6xl mx-auto items-center overflow-x-auto h-full pt-16 pb-8 hide-scrollbar justify-center">
+                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-4 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar justify-center">
                
                {myPlayer.eliminated ? (
                    <div className="text-4xl font-black text-red-500 tracking-widest drop-shadow-lg">ELIMINATED</div>
@@ -686,10 +698,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                    let isValid = false;
                    if (isMyTurn) {
                       const topCard = gameState.discardPile[gameState.discardPile.length-1];
-                      if (gameState.drawnCardThisTurn) {
-                          isValid = card.id === gameState.drawnCardThisTurn.id;
-                      } else {
-                          if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
+                      if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
                               if (gameState.mode === 'no-mercy') {
                                   const topDrawVal = getDrawValue(topCard.value);
                                   const playDrawVal = getDrawValue(card.value);
@@ -701,7 +710,6 @@ export default function GameBoard({ gameState, socketId }: Props) {
                           } else if (gameState.currentPenalty === 0) {
                               isValid = card.color === gameState.currentColor || card.color === 'wild' || card.value === topCard.value;
                           }
-                      }
                    } else if (canJumpIn) {
                       isValid = true;
                    }

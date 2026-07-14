@@ -9,6 +9,7 @@ import { socket } from './socket.ts';
 import { GameState, GameMode } from './types.ts';
 import Lobby from './components/Lobby.tsx';
 import GameBoard from './components/GameBoard.tsx';
+import BackgroundBlobs from './components/BackgroundBlobs.tsx';
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -39,7 +40,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white font-sans overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-neutral-900 text-white font-sans overflow-hidden flex flex-col relative">
+      <BackgroundBlobs />
       {!isConnected && (
         <div className="bg-red-500 text-white text-center py-1 text-xs">
           Connecting to server...

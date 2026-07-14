@@ -10,6 +10,7 @@ export interface Card {
 export interface Player {
   id: string; // Socket ID
   name: string;
+  avatar: string;
   hand: Card[];
   isHost: boolean;
   connected: boolean;

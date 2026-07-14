@@ -1,4 +1,23 @@
 import { Server, Socket } from "socket.io";
+const AVATARS = [
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Felix",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Jasper",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Midnight",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Snowball",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Toby",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Ginger",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Oliver",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Milo",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Leo",
+  "https://api.dicebear.com/9.x/bottts/svg?seed=Simba"
+];
+
+function getUnusedAvatar(room) {
+    const usedAvatars = new Set(room.players.map(p => p.avatar));
+    const availableAvatars = AVATARS.filter(a => !usedAvatars.has(a));
+    return availableAvatars.length > 0 ? availableAvatars[Math.floor(Math.random() * availableAvatars.length)] : AVATARS[0];
+}
+
 import { Card, CardColor, CardValue, GameState, Player, ChatMessage, GameMode, getDrawValue } from "../types.ts";
 
 const rooms = new Map<string, GameState>();
@@ -201,10 +220,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
       return;
   }
 
-  if (isTurn && room.drawnCardThisTurn && room.drawnCardThisTurn.id !== cardId) {
-      socket?.emit("error", "You can only play the drawn card or pass");
-      return;
-  }
+
 
   if (canJumpIn) {
       room.currentPlayerIndex = playerIndex;
@@ -452,10 +468,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
       socket?.emit("error", "Not your turn");
       return;
    }
-   if (isTurn && room.drawnCardThisTurn && room.drawnCardThisTurn.id !== cardId) {
-      socket?.emit("error", "You can only play the drawn card or pass");
-      return;
-   }
+
    if (canJumpIn) {
       room.currentPlayerIndex = p1Idx;
       room.turnStartTime = Date.now();
@@ -533,13 +546,7 @@ function executeBotMove(roomId: string, io: Server) {
   for (const card of player.hand) {
      let valid = false;
      
-     if (room.drawnCardThisTurn) {
-         if (card.id === room.drawnCardThisTurn.id) {
-             valid = isCardPlayable(room, card, isStacking);
-         }
-     } else {
-         valid = isCardPlayable(room, card, isStacking);
-     }
+     valid = isCardPlayable(room, card, isStacking);
 
      if (valid) playableCards.push(card);
   }
@@ -743,10 +750,9 @@ export function setupGameLogic(io: Server) {
         if (playerIndex === -1 || playerIndex !== room.currentPlayerIndex) return;
         if (room.drawnCardThisTurn) {
             if (room.forcePlayEnabled || room.mode === 'no-mercy') {
-                const card = room.drawnCardThisTurn;
-                let valid = isCardPlayable(room, card, room.currentPenalty > 0);
-                if (valid) {
-                    socket.emit("error", "You must play the drawn card.");
+                const hasPlayable = room.players[playerIndex].hand.some(c => isCardPlayable(room, c, room.currentPenalty > 0));
+                if (hasPlayable) {
+                    socket.emit("error", "You have playable cards.");
                     return;
                 }
             }
@@ -788,11 +794,16 @@ export function setupGameLogic(io: Server) {
         io.to(roomId).emit("state_update", room);
     });
 
-    socket.on("call_uno", (roomId: string) => {
+        socket.on("call_uno", (roomId: string) => {
         const room = rooms.get(roomId);
         if (!room || room.status !== 'playing') return;
-        const player = room.players.find(p => p.id === socket.id);
-        if (!player) return;
+        const playerIndex = room.players.findIndex(p => p.id === socket.id);
+        if (playerIndex === -1) return;
+        if (playerIndex !== room.currentPlayerIndex) {
+            socket.emit("error", "You can only call UNO on your turn.");
+            return;
+        }
+        const player = room.players[playerIndex];
         if (player.hand.length <= 2 && !player.unoCalled) {
             player.unoCalled = true;
             room.lastActionMessage = `${player.name} yelled UNO!`;
@@ -851,6 +862,7 @@ export function setupGameLogic(io: Server) {
       const bot: Player = {
         id: `bot_${Math.random().toString(36).substr(2, 9)}`,
         name: botNames[room.players.length % botNames.length] + ` (${botPersonality})`,
+        avatar: getUnusedAvatar(room),
         hand: [],
         isHost: false,
         connected: true,
