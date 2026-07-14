@@ -644,10 +644,10 @@ export default function GameBoard({ gameState, socketId }: Props) {
           </div>
 
           {/* My Hand */}
-          <div className={`h-52 border-t flex items-center justify-center relative mt-auto z-40 transition-all duration-500 ${isMyTurn ? 'bg-[#15120a] border-yellow-500/50 shadow-[0_-15px_50px_rgba(234,179,8,0.15)]' : 'bg-[#08080a] border-white/10'}`}>
+          <div className={`h-64 shrink-0 border-t flex items-center justify-center relative mt-auto z-40 transition-all duration-500 ${isMyTurn ? 'bg-[#15120a] border-yellow-500/50 shadow-[0_-15px_50px_rgba(234,179,8,0.15)]' : 'bg-[#08080a] border-white/10'}`}>
              {myPlayer.eliminated && <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center"><span className="text-red-500 font-black text-6xl tracking-tighter shadow-2xl">ELIMINATED</span></div>}
              
-             <div className={`absolute left-1/2 -translate-x-1/2 px-6 py-2 rounded-full uppercase flex items-center gap-3 z-10 transition-all duration-300 shadow-2xl ${isMyTurn ? '-top-6 bg-yellow-500 text-black border-2 border-yellow-300 scale-110 shadow-yellow-500/50 font-black tracking-widest text-sm' : '-top-4 bg-[#0a0a0c] border border-white/10 text-[10px] font-bold text-white/40 tracking-widest'}`}>
+             <div className={`absolute left-1/2 -translate-x-1/2 px-6 py-2 rounded-full uppercase flex items-center gap-3 z-[60] transition-all duration-300 shadow-2xl ${isMyTurn ? '-top-8 bg-yellow-500 text-black border-2 border-yellow-300 scale-110 shadow-yellow-500/50 font-black tracking-widest text-sm' : '-top-6 bg-[#0a0a0c] border border-white/10 text-[10px] font-bold text-white/40 tracking-widest'}`}>
                 <div className={`w-8 h-8 rounded-full overflow-hidden bg-black/20 flex items-center justify-center ${isMyTurn ? 'border-2 border-black/30' : 'border border-white/10'}`}>
                     {myPlayer.avatar ? <img src={myPlayer.avatar} alt={myPlayer.name} className="w-full h-full object-cover" /> : <span>{myPlayer.name.substring(0,2).toUpperCase()}</span>}
                 </div>
@@ -688,7 +688,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div 
                  onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
-                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-8 w-full items-end overflow-x-auto h-full pt-12 pb-6 hide-scrollbar"
+                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-8 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar"
                  style={{ justifyContent: 'safe center' }}>
                
                {myPlayer.eliminated ? (
@@ -734,7 +734,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                        animate={{ opacity: 1, y: 0, scale: 1, rotate: 0, x: 0, transition: { delay: (index % 10) * 0.15 } }}
                        exit={{ opacity: 0, scale: 0.5 }}
                        whileHover={isValid ? { y: -24, rotate: (index % 2 === 0 ? 3 : -2), zIndex: 50, scale: 1.05 } : {}}
-                       className={`relative transition-all cursor-pointer shadow-2xl ${!isValid && isMyTurn ? 'opacity-50 brightness-75 grayscale-[20%]' : ''} ${!isValid ? 'pointer-events-none' : ''}`}
+                       className={`relative shrink-0 transition-all cursor-pointer shadow-2xl ${!isValid && isMyTurn ? 'opacity-50 brightness-75 grayscale-[20%]' : ''} ${!isValid ? 'pointer-events-none' : ''}`}
                        onClick={() => isValid && handlePlayCard(card)}
                        style={{ zIndex: index }}
                      >

@@ -1,9 +1,7 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/server/game.ts', 'utf-8');
 
-const targetAvatars = /const AVATARS = \[[\s\S]*?\];/;
-
-const replacementAvatars = `const AVATARS = [
+const oldAvatars = `const AVATARS = [
   "https://robohash.org/Felix.svg?set=set4",
   "https://robohash.org/Bella.svg?set=set4",
   "https://robohash.org/Charlie.svg?set=set4",
@@ -16,10 +14,23 @@ const replacementAvatars = `const AVATARS = [
   "https://robohash.org/Simba.svg?set=set4"
 ];`;
 
-if (code.match(targetAvatars)) {
-    code = code.replace(targetAvatars, replacementAvatars);
+const newAvatars = `const AVATARS = [
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐶</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦊</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐯</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐼</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐸</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐵</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐻</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐨</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐰</text></svg>"
+];`;
+
+if (code.includes(oldAvatars)) {
+    code = code.replace(oldAvatars, newAvatars);
     fs.writeFileSync('src/server/game.ts', code);
-    console.log("Patched AVATARS");
+    console.log("Patched avatars to 10 different animals");
 } else {
-    console.log("Could not find AVATARS array");
+    console.log("Could not find the target avatar array.");
 }

@@ -1,15 +1,15 @@
 import { Server, Socket } from "socket.io";
 const AVATARS = [
-  "https://robohash.org/Felix.svg?set=set4",
-  "https://robohash.org/Bella.svg?set=set4",
-  "https://robohash.org/Charlie.svg?set=set4",
-  "https://robohash.org/Lucy.svg?set=set4",
-  "https://robohash.org/Max.svg?set=set4",
-  "https://robohash.org/Daisy.svg?set=set4",
-  "https://robohash.org/Rocky.svg?set=set4",
-  "https://robohash.org/Milo.svg?set=set4",
-  "https://robohash.org/Leo.svg?set=set4",
-  "https://robohash.org/Simba.svg?set=set4"
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐶</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦊</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐯</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐼</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐸</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐵</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐻</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐨</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐰</text></svg>"
 ];
 
 function getUnusedAvatar(room) {
@@ -282,8 +282,6 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   room.drawnCardThisTurn = null; // Clear draw state
   room.jumpInExpiry = Date.now() + 5000;
 
-  if (checkWinner(room, io)) return;
-
   // Apply card effects
   let skip = 1;
   if (card.value === 'skip') {
@@ -308,11 +306,9 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
       skip = 2; // In 2 player, reverse acts like skip (same player goes again and draws)
     }
   } else if (card.value === 'draw2') {
-    if (room.mode === 'no-mercy') room.currentPenalty += 2;
-    else room.currentPenalty = 2;
+    room.currentPenalty += 2;
   } else if (card.value === 'draw4') {
-    if (room.mode === 'no-mercy') room.currentPenalty += 4;
-    else room.currentPenalty = 4;
+    room.currentPenalty += 4;
   } else if (card.value === 'wild_draw6') {
     room.currentPenalty += 6;
   } else if (card.value === 'wild_draw10') {
@@ -523,9 +519,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
    room.discardPile.push(card);
    room.currentColor = (card.color === 'wild' && chosenColor) ? chosenColor : card.color;
    room.drawnCardThisTurn = null;
-   
-   if (checkWinner(room, io)) return;
-   
+
    // Swap
    const temp = p1.hand;
    p1.hand = p2.hand;
