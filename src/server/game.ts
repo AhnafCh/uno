@@ -225,7 +225,12 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   const card = player.hand[cardIndex];
   const topCard = room.discardPile[room.discardPile.length - 1];
 
-  const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild' && (topCardId ? topCard.id === topCardId : true);
+  if (topCardId && topCard.id !== topCardId) {
+      socket?.emit("error", "Game state changed. Try again!");
+      return;
+  }
+
+  const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild';
   const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn && room.jumpInExpiry && Date.now() <= room.jumpInExpiry;
 
   if (!isTurn && !canJumpIn) {
@@ -374,6 +379,8 @@ function executeDrawCard(roomId: string, io: Server, playerIndex: number) {
   if (!room || room.status !== 'playing') return;
   if (playerIndex !== room.currentPlayerIndex) return;
   if (room.drawnCardThisTurn) return; // Already drawn
+
+  room.jumpInExpiry = 0;
   
   const player = room.players[playerIndex];
   if (player.eliminated) return;
@@ -481,7 +488,12 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
       return;
    }
    
-   const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild' && (topCardId ? topCard.id === topCardId : true);
+   if (topCardId && topCard.id !== topCardId) {
+      socket?.emit("error", "Game state changed. Try again!");
+      return;
+   }
+
+   const isExactMatch = card.color === topCard.color && card.value === topCard.value && card.color !== 'wild';
    const canJumpIn = room.jumpInEnabled && !isTurn && isExactMatch && room.currentPenalty === 0 && !room.drawnCardThisTurn && room.jumpInExpiry && Date.now() <= room.jumpInExpiry;
 
    if (!isTurn && !canJumpIn) {
@@ -719,7 +731,8 @@ export function setupGameLogic(io: Server) {
           name,
           hand: [],
           isHost: room.players.length === 0,
-          connected: true
+          connected: true,
+          avatar: getUnusedAvatar(room)
         });
         room.lastActionMessage = `${name} joined`;
       }
@@ -851,7 +864,7 @@ export function setupGameLogic(io: Server) {
         }
     });
 
-            socket.on("update_settings", ({roomId, limit, winLimit, jumpIn, mode, rule70Enabled, forcePlayEnabled, botSpeed, turnTimeLimit}: {roomId: string, limit: number, winLimit?: number, jumpIn: boolean, mode?: 'normal' | 'no-mercy', rule70Enabled?: boolean, forcePlayEnabled?: boolean, botSpeed?: number, turnTimeLimit?: number}) => {
+            socket.on("update_settings", ({roomId, limit, winLimit, jumpIn, mode, rule70Enabled, forcePlayEnabled, botSpeed, turnTimeLimit, stackingEnabled}: {roomId: string, limit: number, winLimit?: number, jumpIn: boolean, mode?: 'normal' | 'no-mercy', rule70Enabled?: boolean, forcePlayEnabled?: boolean, botSpeed?: number, turnTimeLimit?: number, stackingEnabled?: boolean}) => {
        const room = rooms.get(roomId);
        if (!room) return;
        const player = room.players.find(p => p.id === socket.id);
@@ -866,9 +879,11 @@ export function setupGameLogic(io: Server) {
        if (botSpeed !== undefined) room.botSpeed = botSpeed;
        if (turnTimeLimit !== undefined) room.turnTimeLimit = turnTimeLimit;
 
+       if (stackingEnabled !== undefined) room.stackingEnabled = stackingEnabled;
+
        if (mode) {
            room.mode = mode;
-           room.stackingEnabled = mode === 'no-mercy';
+           if (mode === 'no-mercy') room.stackingEnabled = true;
        }
        io.to(roomId).emit("state_update", room);
     });

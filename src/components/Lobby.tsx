@@ -29,28 +29,28 @@ export default function Lobby({ onJoin }: Props) {
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         className="absolute left-[10%] top-[20%] opacity-40 blur-[2px] -z-10 scale-75"
       >
-        <PlayingCard card={{ id: '1', color: 'red', value: 'draw2', type: 'action' }} />
+        <PlayingCard card={{ id: '1', color: 'red', value: 'draw2' }} />
       </motion.div>
       <motion.div 
         animate={{ y: [0, 20, 0], rotate: [0, -10, 0] }} 
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         className="absolute right-[10%] bottom-[20%] opacity-30 blur-[4px] -z-10 scale-50"
       >
-        <PlayingCard card={{ id: '2', color: 'wild', value: 'wild_draw4', type: 'wild' }} />
+        <PlayingCard card={{ id: '2', color: 'wild', value: 'draw4' }} />
       </motion.div>
       <motion.div 
         animate={{ y: [0, -15, 0], rotate: [0, -5, 0] }} 
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         className="absolute left-[20%] bottom-[15%] opacity-40 blur-[3px] -z-10 scale-75"
       >
-        <PlayingCard card={{ id: '3', color: 'blue', value: 'reverse', type: 'action' }} />
+        <PlayingCard card={{ id: '3', color: 'blue', value: 'reverse' }} />
       </motion.div>
       <motion.div 
         animate={{ y: [0, 30, 0], rotate: [0, 15, 0] }} 
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
         className="absolute right-[15%] top-[15%] opacity-30 blur-[2px] -z-10 scale-75"
       >
-        <PlayingCard card={{ id: '4', color: 'yellow', value: 'skip', type: 'action' }} />
+        <PlayingCard card={{ id: '4', color: 'yellow', value: 'skip' }} />
       </motion.div>
 
       <motion.div 

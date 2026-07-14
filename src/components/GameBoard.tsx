@@ -81,6 +81,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
       forcePlayEnabled: gameState.forcePlayEnabled || false,
       botSpeed: gameState.botSpeed || 1500,
       turnTimeLimit: gameState.turnTimeLimit || 0,
+      stackingEnabled: gameState.stackingEnabled || false,
       ...updates
     });
   };
@@ -428,6 +429,11 @@ export default function GameBoard({ gameState, socketId }: Props) {
                      </div>
                  )}
                  <div className={`flex justify-between items-center pt-2 border-t border-white/10 ${!myPlayer.isHost ? 'opacity-70 pointer-events-none' : ''}`}>
+                    <label className="text-sm font-bold text-neutral-300">Enable Stacking</label>
+                    <input type="checkbox" checked={gameState.stackingEnabled || false} onChange={(e) => handleUpdateSettings({stackingEnabled: e.target.checked})} className="w-5 h-5 accent-red-500" disabled={gameState.mode === 'no-mercy'} />
+                 </div>
+                 <div className="text-[10px] text-white/40 -mt-3">Stack +2 and +4 cards.</div>
+                 <div className={`flex justify-between items-center pt-2 border-t border-white/10 ${!myPlayer.isHost ? 'opacity-70 pointer-events-none' : ''}`}>
                     <label className="text-sm font-bold text-neutral-300">Enable Jump-In</label>
                     <input type="checkbox" checked={gameState.jumpInEnabled || false} onChange={(e) => handleUpdateSettings({jumpIn: e.target.checked})} className="w-5 h-5 accent-red-500" />
                  </div>
@@ -682,7 +688,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div 
                  onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
-                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-8 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar"
+                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-8 w-full items-end overflow-x-auto h-full pt-12 pb-6 hide-scrollbar"
                  style={{ justifyContent: 'safe center' }}>
                
                {myPlayer.eliminated ? (
