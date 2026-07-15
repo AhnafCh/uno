@@ -6,7 +6,7 @@ import { getColorHex } from '../utils.ts';
 import { socket } from '../socket.ts';
 import PlayingCard from './PlayingCard.tsx';
 import Chat from './Chat.tsx';
-import { Users, LogOut, Info } from 'lucide-react';
+import { Users, LogOut, Info, Maximize, Minimize, Shuffle } from 'lucide-react';
 import CardBack from './CardBack.tsx';
 import OpponentHand from './OpponentHand.tsx';
 import ColorPickerModal from './ColorPickerModal.tsx';
@@ -15,14 +15,44 @@ import PlayerPickerModal from './PlayerPickerModal.tsx';
 interface Props {
   gameState: GameState;
   socketId: string;
+  onLeave?: () => void;
 }
 
-export default function GameBoard({ gameState, socketId }: Props) {
+export default function GameBoard({ gameState, socketId, onLeave }: Props) {
   const [showColorPicker, setShowColorPicker] = useState<{ cardId: string } | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
   const [chatMsg, setChatMsg] = useState("");
   const [now, setNow] = useState(Date.now());
-  const [timeOffset, setTimeOffset] = useState(0);
+    const [timeOffset, setTimeOffset] = useState(0);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+  const [boardScale, setBoardScale] = useState(1);
+  
+  useEffect(() => {
+    const handleResize = () => {
+       if (window.innerHeight < 700) {
+           setBoardScale(Math.max(0.4, window.innerHeight / 750));
+       } else {
+           setBoardScale(1);
+       }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => console.error(err));
+    } else {
+      document.exitFullscreen().catch(err => console.error(err));
+    }
+  };
   useEffect(() => { if (gameState.serverNow) setTimeOffset(gameState.serverNow - Date.now()); }, [gameState.serverNow]);
   const syncedNow = now + timeOffset;
   const chatRef = useRef<HTMLDivElement>(null);
@@ -221,9 +251,9 @@ export default function GameBoard({ gameState, socketId }: Props) {
 
   return (
     <LayoutGroup>
-    <div className="flex-1 flex flex-col relative bg-[radial-gradient(circle_at_center,_#1c1c24_0%,_#0a0a0c_80%)]">
+    <div className="flex-1 flex flex-col relative bg-[radial-gradient(circle_at_center,_#1c1c24_0%,_#0a0a0c_80%)]" style={{ zoom: boardScale }}>
       {/* Header */}
-      <header className="h-14 px-6 flex items-center justify-between bg-[#141418] border-b border-white/10 z-50">
+      <header className="h-10 md:h-14 px-6 flex items-center justify-between bg-[#141418] border-b border-white/10 z-50">
         <div className="flex items-center gap-4">
           <div className="text-2xl font-black italic tracking-tighter text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
             UNO<span className="text-red-500">WILD</span>
@@ -241,8 +271,14 @@ export default function GameBoard({ gameState, socketId }: Props) {
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
             <span className="text-xs font-medium text-white/70">{gameState.players.length}/10 PLAYERS</span>
           </div>
-          <button onClick={() => window.location.reload()} className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/20 rounded text-xs font-bold transition-all text-white">
-            QUIT
+          <button onClick={toggleFullscreen} className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/20 rounded transition-all text-white" title="Toggle Fullscreen">
+            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+          </button>
+          <button onClick={() => {
+            socket.emit('leave_room', gameState.id);
+            if (onLeave) onLeave();
+          }} className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/20 rounded text-xs font-bold transition-all text-white">
+            RETURN TO LOBBY
           </button>
         </div>
       </header>
@@ -326,13 +362,21 @@ export default function GameBoard({ gameState, socketId }: Props) {
               ))}
             </div>
             {myPlayer.isHost ? (
-                <button
-                  onClick={() => socket.emit('add_bot', gameState.id)}
-                  disabled={gameState.players.length >= 10}
-                  className="w-full py-4 bg-white/10 hover:bg-white/20 font-bold rounded-lg disabled:opacity-50 transition border border-white/10"
-                >
-                  + Add Bot
-                </button>
+                <div className="flex gap-2 w-full">
+                  <button
+                    onClick={() => socket.emit('add_bot', gameState.id)}
+                    disabled={gameState.players.length >= 10}
+                    className="flex-1 py-4 bg-white/10 hover:bg-white/20 font-bold rounded-lg disabled:opacity-50 transition border border-white/10"
+                  >
+                    + Add Bot
+                  </button>
+                  <button
+                    onClick={() => socket.emit('shuffle_players', gameState.id)}
+                    className="flex-1 flex items-center justify-center py-4 bg-white/10 hover:bg-white/20 font-bold rounded-lg transition border border-white/10"
+                  >
+                    <Shuffle size={18} className="mr-2" /> Shuffle Seats
+                  </button>
+                </div>
             ) : (
                 <p className="text-center text-neutral-400 animate-pulse mt-auto">Waiting for host to start...</p>
             )}
@@ -587,7 +631,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
           </div>
 
           {/* Center Area (Deck & Discard) */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12 z-10">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[45%] flex items-center gap-4 sm:gap-8 md:gap-12 z-10 scale-[0.55] sm:scale-75 md:scale-100">
             {/* Deck */}
             <motion.div whileHover={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 1.05, y: -5 } : {}} whileTap={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 0.95 } : {}} className={`relative ${isMyTurn && !gameState.drawnCardThisTurn ? 'cursor-pointer group hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]' : 'opacity-70 pointer-events-none'}`} onClick={handleDraw}>
               <div className="rotate-2 transition-transform group-hover:rotate-0 drop-shadow-2xl">
@@ -648,7 +692,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
           </div>
 
           {/* My Hand */}
-          <div className={`h-64 shrink-0 border-t flex items-center justify-center relative mt-auto z-40 transition-all duration-500 ${isMyTurn ? 'bg-[#15120a] border-yellow-500/50 shadow-[0_-15px_50px_rgba(234,179,8,0.15)]' : 'bg-[#08080a] border-white/10'}`}>
+          <div className={`h-36 sm:h-48 md:h-64 shrink-0 border-t flex items-center justify-center relative mt-auto z-40 transition-all duration-500 ${isMyTurn ? 'bg-[#15120a] border-yellow-500/50 shadow-[0_-15px_50px_rgba(234,179,8,0.15)]' : 'bg-[#08080a] border-white/10'}`}>
              {myPlayer.eliminated && <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center"><span className="text-red-500 font-black text-6xl tracking-tighter shadow-2xl">ELIMINATED</span></div>}
              
              <div className={`absolute left-1/2 -translate-x-1/2 px-6 py-2 rounded-full uppercase flex items-center gap-3 z-[60] transition-all duration-300 shadow-2xl ${isMyTurn ? '-top-8 bg-yellow-500 text-black border-2 border-yellow-300 scale-110 shadow-yellow-500/50 font-black tracking-widest text-sm' : '-top-6 bg-[#0a0a0c] border border-white/10 text-[10px] font-bold text-white/40 tracking-widest'}`}>

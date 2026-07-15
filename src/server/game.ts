@@ -871,7 +871,20 @@ export function setupGameLogic(io: Server) {
        io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
     });
 
-        socket.on("add_bot", (roomId: string) => {
+        socket.on("shuffle_players", (roomId: string) => {
+      const room = rooms.get(roomId);
+      if (!room || room.status !== 'lobby') return;
+      const player = room.players.find(p => p.id === socket.id);
+      if (!player || !player.isHost) return;
+      
+      for (let i = room.players.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [room.players[i], room.players[j]] = [room.players[j], room.players[i]];
+      }
+      io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
+    });
+
+    socket.on("add_bot", (roomId: string) => {
       const room = rooms.get(roomId);
       if (!room) return;
       const player = room.players.find(p => p.id === socket.id);
@@ -969,6 +982,28 @@ export function setupGameLogic(io: Server) {
         return a.value.localeCompare(b.value);
       });
       io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
+    });
+
+    socket.on("leave_room", (roomId: string) => {
+      const room = rooms.get(roomId);
+      if (!room) return;
+      const playerIndex = room.players.findIndex(p => p.id === socket.id);
+      if (playerIndex !== -1) {
+        const player = room.players[playerIndex];
+        player.connected = false;
+        player.eliminated = true; // functionally eliminate them from the room
+        socket.leave(roomId);
+        room.lastActionMessage = `${player.name} left the room`;
+        
+        if (room.players.every(p => (!p.connected && p.eliminated) || p.isBot)) {
+           rooms.delete(roomId);
+        } else {
+           if (playerIndex === room.currentPlayerIndex && room.status === 'playing') {
+               executeBotMove(roomId, io, true);
+           }
+           io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
+        }
+      }
     });
 
     socket.on("disconnect", () => {

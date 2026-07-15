@@ -61,7 +61,7 @@ export default function App() {
           </motion.div>
         ) : (
           <motion.div key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="flex-1 flex flex-col h-full">
-            <GameBoard gameState={gameState} socketId={socket.id || ''} />
+            <GameBoard gameState={gameState} socketId={socket.id || ''} onLeave={() => setGameState(null)} />
           </motion.div>
         )}
       </AnimatePresence>
