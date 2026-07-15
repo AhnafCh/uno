@@ -281,8 +281,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   if (player.hand.length > 1) player.unoCalled = false;
   room.discardPile.push(card);
   room.currentColor = (card.color === 'wild' && chosenColor) ? chosenColor : card.color;
-   room.jumpInExpiry = Date.now() + 5000;
-  const displayColor = card.color !== 'wild' ? card.color : (chosenColor || 'wild');
+   const displayColor = card.color !== 'wild' ? card.color : (chosenColor || 'wild');
   room.lastActionMessage = `${player.name} played ${formatCardName(displayColor, card.value)}`;
   room.drawnCardThisTurn = null; // Clear draw state
   room.jumpInExpiry = Date.now() + 5000;
@@ -364,7 +363,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   room.currentPlayerIndex = nextPlayerIndex(room, skip);
   room.turnStartTime = Date.now();
   if (checkWinner(room, io)) return;
-  io.to(roomId).emit("state_update", room);
+  io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
   triggerBotIfTurn(roomId, io);
 }
 
@@ -451,7 +450,7 @@ function executeDrawCard(roomId: string, io: Server, playerIndex: number) {
       room.currentPlayerIndex = nextPlayerIndex(room, 1);
       room.turnStartTime = Date.now();
   }
-  io.to(roomId).emit("state_update", room);
+  io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
   triggerBotIfTurn(roomId, io);
 }
 
@@ -518,6 +517,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
    room.discardPile.push(card);
    room.currentColor = (card.color === 'wild' && chosenColor) ? chosenColor : card.color;
    room.drawnCardThisTurn = null;
+   room.jumpInExpiry = Date.now() + 5000;
 
    // Swap
    const temp = p1.hand;
@@ -533,7 +533,7 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
   room.turnStartTime = Date.now();
   }
 
-  io.to(roomId).emit("state_update", room);
+  io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
   triggerBotIfTurn(roomId, io);
 }
 
@@ -559,7 +559,7 @@ function executeBotMove(roomId: string, io: Server, forceAutoPlay: boolean = fal
           p.unoCalled = false;
           room.lastActionMessage = `${player.name} caught ${p.name} not saying UNO! +2 cards`;
           checkEliminations(room, io);
-          io.to(roomId).emit("state_update", room);
+          io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
       }
   }
 
@@ -631,7 +631,7 @@ function executeBotMove(roomId: string, io: Server, forceAutoPlay: boolean = fal
           room.currentPlayerIndex = nextPlayerIndex(room, 1);
   room.turnStartTime = Date.now();
           room.lastActionMessage = `${player.name} passed.`;
-          io.to(roomId).emit("state_update", room);
+          io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
           triggerBotIfTurn(roomId, io);
       }
   } else {
@@ -723,7 +723,7 @@ export function setupGameLogic(io: Server) {
         room.lastActionMessage = `${name} joined`;
       }
 
-      io.to(roomId).emit("state_update", room);
+      io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
     });
 
     socket.on("start_game", (roomId: string) => {
@@ -762,7 +762,7 @@ export function setupGameLogic(io: Server) {
       room.winner = null;
       room.lastActionMessage = 'Game started!';
 
-      io.to(roomId).emit("state_update", room);
+      io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
       triggerBotIfTurn(roomId, io);
     });
 
@@ -784,7 +784,7 @@ export function setupGameLogic(io: Server) {
             room.currentPlayerIndex = nextPlayerIndex(room, 1);
   room.turnStartTime = Date.now();
             room.lastActionMessage = `${room.players[playerIndex].name} passed.`;
-            io.to(roomId).emit("state_update", room);
+            io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
             triggerBotIfTurn(roomId, io);
         }
     });
@@ -815,7 +815,7 @@ export function setupGameLogic(io: Server) {
             finishedPlace: undefined,
         }));
         
-        io.to(roomId).emit("state_update", room);
+        io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
     });
 
         socket.on("call_uno", (roomId: string) => {
@@ -828,7 +828,7 @@ export function setupGameLogic(io: Server) {
         if (player.hand.length <= 2 && !player.unoCalled) {
             player.unoCalled = true;
             room.lastActionMessage = `${player.name} yelled UNO!`;
-            io.to(roomId).emit("state_update", room);
+            io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
         }
     });
 
@@ -843,7 +843,7 @@ export function setupGameLogic(io: Server) {
             target.unoCalled = false;
             room.lastActionMessage = `${target.name} was caught not saying UNO and drew 2!`;
             checkEliminations(room, io);
-            io.to(roomId).emit("state_update", room);
+            io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
         }
     });
 
@@ -868,7 +868,7 @@ export function setupGameLogic(io: Server) {
            room.mode = mode;
            if (mode === 'no-mercy') room.stackingEnabled = true;
        }
-       io.to(roomId).emit("state_update", room);
+       io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
     });
 
         socket.on("add_bot", (roomId: string) => {
@@ -895,7 +895,7 @@ export function setupGameLogic(io: Server) {
       room.players.push(bot);
       const botIndex = room.players.filter(p => p.isBot).length;
       room.lastActionMessage = `Bot ${botIndex} joined`;
-      io.to(roomId).emit("state_update", room);
+      io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
     });
     socket.on("remove_player", ({roomId, targetId}: {roomId: string, targetId: string}) => {
       const room = rooms.get(roomId);
@@ -907,7 +907,7 @@ export function setupGameLogic(io: Server) {
       const targetIndex = room.players.findIndex(p => p.id === targetId);
       if (targetIndex !== -1 && targetId !== socket.id) {
          room.players.splice(targetIndex, 1);
-         io.to(roomId).emit("state_update", room);
+         io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
       }
     });
 
@@ -944,7 +944,7 @@ export function setupGameLogic(io: Server) {
       // Keep last 50 messages
       if (room.chat.length > 50) room.chat.shift();
       
-      io.to(roomId).emit("state_update", room);
+      io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
     });
     
     // In No Mercy, 7 swaps hand with selected player
@@ -968,7 +968,7 @@ export function setupGameLogic(io: Server) {
         if (a.color !== b.color) return a.color.localeCompare(b.color);
         return a.value.localeCompare(b.value);
       });
-      io.to(roomId).emit("state_update", room);
+      io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
     });
 
     socket.on("disconnect", () => {
@@ -987,7 +987,7 @@ export function setupGameLogic(io: Server) {
                    room.lastActionMessage = `${player.name} disconnected! Auto-playing...`;
                    executeBotMove(roomId, io, true);
              }
-             io.to(roomId).emit("state_update", room);
+             io.to(roomId).emit("state_update", { ...room, serverNow: Date.now() });
           }
         }
       });

@@ -48,6 +48,7 @@ export interface GameState {
   turnTimeLimit?: number;
   turnStartTime?: number;
   jumpInExpiry?: number;
+  serverNow?: number;
   drawnCardThisTurn?: Card | null; // For Play After Draw
 }
 

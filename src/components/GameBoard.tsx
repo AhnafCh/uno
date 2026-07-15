@@ -22,6 +22,9 @@ export default function GameBoard({ gameState, socketId }: Props) {
     const [chatOpen, setChatOpen] = useState(false);
   const [chatMsg, setChatMsg] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [timeOffset, setTimeOffset] = useState(0);
+  useEffect(() => { if (gameState.serverNow) setTimeOffset(gameState.serverNow - Date.now()); }, [gameState.serverNow]);
+  const syncedNow = now + timeOffset;
   const chatRef = useRef<HTMLDivElement>(null);
   
   const sendChat = (msg: string) => {
@@ -33,15 +36,17 @@ export default function GameBoard({ gameState, socketId }: Props) {
   
   useEffect(() => {
     let animationFrameId: number;
+    
     const updateTime = () => {
       setNow(Date.now());
       animationFrameId = requestAnimationFrame(updateTime);
     };
-    if (gameState.jumpInExpiry && gameState.jumpInExpiry > Date.now()) {
-      updateTime();
+    
+    if (gameState.status === 'playing') {
+       animationFrameId = requestAnimationFrame(updateTime);
     }
     return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState.jumpInExpiry]);
+  }, [gameState.status]);
 
   useEffect(() => {
      if (chatRef.current) {
@@ -63,7 +68,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
      }
      
      const interval = setInterval(() => {
-         const elapsed = (Date.now() - gameState.turnStartTime!) / 1000;
+         const elapsed = (syncedNow - gameState.turnStartTime!) / 1000;
          const remaining = Math.max(0, gameState.turnTimeLimit! - Math.floor(elapsed));
          setTimeLeft(remaining);
      }, 500);
@@ -124,7 +129,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
   const handlePlayCard = (card: Card) => {
     
     const isExactMatch = card.color === gameState.discardPile[gameState.discardPile.length-1].color && card.value === gameState.discardPile[gameState.discardPile.length-1].value && card.color !== 'wild';
-    const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? now <= gameState.jumpInExpiry : false);
+    const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? syncedNow <= gameState.jumpInExpiry : false);
     if (!isMyTurn && !canJumpIn) return;
 
     if (card.value === '7' && (gameState.mode === 'no-mercy' || gameState.rule70Enabled)) {
@@ -699,7 +704,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                    {myPlayer.hand.filter(c => !playingCardIds.includes(c.id)).map((card, index) => {
                      
                      const isExactMatch = card.color === gameState.discardPile[gameState.discardPile.length-1].color && card.value === gameState.discardPile[gameState.discardPile.length-1].value && card.color !== 'wild';
-                   const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? now <= gameState.jumpInExpiry : false);
+                   const canJumpIn = gameState.jumpInEnabled && !isMyTurn && isExactMatch && gameState.currentPenalty === 0 && !gameState.drawnCardThisTurn && (gameState.jumpInExpiry ? syncedNow <= gameState.jumpInExpiry : false);
                    
                    let isValid = false;
                    if (isMyTurn) {
@@ -738,7 +743,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                        {canJumpIn && (
                          <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black text-xs px-2 py-1 rounded-full whitespace-nowrap shadow-lg border-2 border-yellow-700 z-50 flex flex-col items-center">
                            <span className="animate-pulse">JUMP IN!</span>
-                           <span className="text-[9px]">{(Math.max(0, (gameState.jumpInExpiry - now) / 1000)).toFixed(1)}s</span>
+                           <span className="text-[9px]">{(Math.max(0, (gameState.jumpInExpiry - syncedNow) / 1000)).toFixed(1)}s</span>
                          </div>
                        )}
                      </motion.div>
