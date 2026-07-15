@@ -584,7 +584,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
           {/* Center Area (Deck & Discard) */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12 z-10">
             {/* Deck */}
-            <motion.div whileHover={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 1.05, y: -5 } : {}} whileTap={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 0.95 } : {}} className={`relative ${isMyTurn && !gameState.drawnCardThisTurn ? 'cursor-pointer group hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] transition-all' : 'opacity-70 pointer-events-none'}`} onClick={handleDraw}>
+            <motion.div whileHover={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 1.05, y: -5 } : {}} whileTap={isMyTurn && !gameState.drawnCardThisTurn ? { scale: 0.95 } : {}} className={`relative ${isMyTurn && !gameState.drawnCardThisTurn ? 'cursor-pointer group hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]' : 'opacity-70 pointer-events-none'}`} onClick={handleDraw}>
               <div className="rotate-2 transition-transform group-hover:rotate-0 drop-shadow-2xl">
                  <CardBack size="md" />
               </div>
@@ -668,7 +668,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                       PASS TURN
                     </button>
                  )}
-                 {isMyTurn && myPlayer.hand.length > 0 && myPlayer.hand.length <= 2 && !myPlayer.unoCalled && !myPlayer.eliminated && (
+                 {myPlayer.hand.length > 0 && myPlayer.hand.length <= 2 && !myPlayer.unoCalled && !myPlayer.eliminated && (
                     <button 
                       onClick={() => socket.emit('call_uno', gameState.id)}
                       className="w-32 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs italic tracking-tighter rounded-md shadow-lg shadow-red-600/20 border-b-4 border-red-800 active:border-b-0 active:translate-y-1 transition-all animate-pulse"
@@ -687,7 +687,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div 
                  onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
-                 className="flex -space-x-8 px-8 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar"
+                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-8 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar"
                  style={{ justifyContent: 'safe center' }}>
                
                {myPlayer.eliminated ? (

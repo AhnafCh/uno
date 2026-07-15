@@ -823,10 +823,7 @@ export function setupGameLogic(io: Server) {
         if (!room || room.status !== 'playing') return;
         const playerIndex = room.players.findIndex(p => p.id === socket.id);
         if (playerIndex === -1) return;
-        if (playerIndex !== room.currentPlayerIndex) {
-            socket.emit("error", "You can only call UNO on your turn.");
-            return;
-        }
+
         const player = room.players[playerIndex];
         if (player.hand.length <= 2 && !player.unoCalled) {
             player.unoCalled = true;
