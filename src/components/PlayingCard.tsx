@@ -78,19 +78,17 @@ export default function PlayingCard({ card, isCurrentColor }: Props) {
 
   const isWild = card.color === 'wild';
   const textStyle = { 
-    WebkitTextStroke: '1px black',
-    textShadow: '1px 1px 0 #000'
+    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 0 #000'
   };
-  
+    
   const centerTextStyle = { 
-    WebkitTextStroke: '2px black',
-    textShadow: '3px 3px 0 #000'
+    textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 4px 4px 0 #000'
   };
 
   return (
     <div className={`w-32 h-48 rounded-xl shadow-xl border-[8px] border-[#1a1a1a] flex flex-col justify-between p-2 relative select-none overflow-hidden ${getBgColor()}`}>
       {/* Top Left */}
-      <div className="text-2xl font-black text-white z-20 flex items-center justify-center w-8 h-8" style={textStyle}>
+      <div className="relative text-2xl font-black text-white z-20 flex items-center justify-center w-8 h-8" style={textStyle}>
         {displayValue(false)}
       </div>
 
@@ -112,7 +110,7 @@ export default function PlayingCard({ card, isCurrentColor }: Props) {
       </div>
 
       {/* Bottom Right */}
-      <div className="text-2xl font-black text-white z-20 rotate-180 flex justify-end w-8 h-8 self-end" style={textStyle}>
+      <div className="relative text-2xl font-black text-white z-20 rotate-180 flex items-center justify-center w-8 h-8 self-end" style={textStyle}>
         {displayValue(false)}
       </div>
     </div>

@@ -1,15 +1,15 @@
 import { Server, Socket } from "socket.io";
 const AVATARS = [
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐶</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦊</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐯</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐼</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐸</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐵</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐻</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐨</text></svg>",
-  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐰</text></svg>"
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>👽</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>👻</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>🤖</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>👾</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>🤠</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>🤡</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>👹</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>👺</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>😺</text></svg>",
+  "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2280%22>💩</text></svg>"
 ];
 
 function getUnusedAvatar(room) {
@@ -100,7 +100,7 @@ function createRoom(roomId: string, mode: GameMode = 'normal'): GameState {
     eliminationLimit: 25,
     winLimit: 1,
     jumpInEnabled: true,
-    stackingEnabled: mode === 'no-mercy',
+    stackingEnabled: true,
     drawnCardThisTurn: null
   };
   rooms.set(roomId, room);
@@ -127,6 +127,21 @@ function checkEliminations(room: GameState, io: Server) {
 
 // getDrawValue moved to types.ts
 
+function replenishDeck(room: GameState) {
+  if (room.discardPile.length > 1) {
+      const topDiscard = room.discardPile.pop()!;
+      room.deck = room.discardPile.sort(() => Math.random() - 0.5);
+      room.deck.forEach(c => {
+        if (c.value.startsWith('wild')) c.color = 'wild';
+      });
+      room.discardPile = [topDiscard];
+  } else {
+      const newDeck = generateDeck(room.mode);
+      newDeck.forEach(c => c.id = `new_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+      room.deck = newDeck.sort(() => Math.random() - 0.5);
+  }
+}
+
 export function isCardPlayable(room: GameState, card: Card, isStacking: boolean): boolean {
     const topCard = room.discardPile[room.discardPile.length - 1];
     if (isStacking) {
@@ -135,14 +150,7 @@ export function isCardPlayable(room: GameState, card: Card, isStacking: boolean)
         const topDrawVal = getDrawValue(topCard.value);
         const playDrawVal = getDrawValue(card.value);
         
-        if (room.mode === 'no-mercy') {
-            return topDrawVal > 0 && playDrawVal >= topDrawVal;
-        } else {
-            // Normal mode stacking: +4 on +4, or +2/+4 on +2
-            if (topCard.value === 'draw4' && card.value === 'draw4') return true;
-            if (topCard.value === 'draw2' && (card.value === 'draw2' || card.value === 'draw4')) return true;
-            return false;
-        }
+        return topDrawVal > 0 && playDrawVal >= topDrawVal;
     } else {
         return card.color === room.currentColor || card.color === 'wild' || card.value === topCard.value;
     }
@@ -247,10 +255,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
   }
 
   
-  if (room.drawnCardThisTurn && card.id !== room.drawnCardThisTurn.id) {
-      socket?.emit("error", "You can only play the drawn card.");
-      return;
-  }
+
 
   const isValidColor = card.color === room.currentColor || card.color === 'wild';
   const isValidValue = card.value === topCard.value;
@@ -320,13 +325,7 @@ function executePlayCard(roomId: string, io: Server, playerIndex: number, cardId
       let found = false;
       while (!found) {
           if (room.deck.length === 0) {
-              if (room.discardPile.length <= 1) break; // No cards left to shuffle
-              const topDiscard = room.discardPile.pop()!;
-              room.deck = room.discardPile.sort(() => Math.random() - 0.5);
-              room.deck.forEach(c => {
-                if (c.value.startsWith('wild')) c.color = 'wild';
-              });
-              room.discardPile = [topDiscard];
+              replenishDeck(room);
           }
           const drawnCard = room.deck.pop()!;
           drawnCards.push(drawnCard);
@@ -524,8 +523,8 @@ function executePlay7(roomId: string, io: Server, playerIndex: number, targetPla
    const temp = p1.hand;
    p1.hand = p2.hand;
    p2.hand = temp;
-   if (p1.hand.length > 1) p1.unoCalled = false;
-   if (p2.hand.length > 1) p2.unoCalled = false;
+   p1.unoCalled = false;
+   p2.unoCalled = false;
 
    room.lastActionMessage = `${p1.name} played 7 and swapped hands with ${p2.name}!`;
 
@@ -664,14 +663,7 @@ function drawCards(room: GameState, count: number): Card[] {
   const drawn: Card[] = [];
   for (let i = 0; i < count; i++) {
     if (room.deck.length === 0) {
-      if (room.discardPile.length <= 1) break; // No cards left to shuffle
-      const topDiscard = room.discardPile.pop()!;
-      room.deck = room.discardPile.sort(() => Math.random() - 0.5);
-      // Reset wildcard colors on reshuffle
-      room.deck.forEach(c => {
-        if (c.value.startsWith('wild')) c.color = 'wild';
-      });
-      room.discardPile = [topDiscard];
+      replenishDeck(room);
     }
     drawn.push(room.deck.pop()!);
   }
@@ -782,7 +774,7 @@ export function setupGameLogic(io: Server) {
         if (playerIndex === -1 || playerIndex !== room.currentPlayerIndex) return;
         if (room.drawnCardThisTurn) {
             if (room.forcePlayEnabled || room.mode === 'no-mercy') {
-                const hasPlayable = room.players[playerIndex].hand.some(c => (room.drawnCardThisTurn ? c.id === room.drawnCardThisTurn.id : true) && isCardPlayable(room, c, room.currentPenalty > 0));
+                const hasPlayable = room.players[playerIndex].hand.some(c => isCardPlayable(room, c, room.currentPenalty > 0));
                 if (hasPlayable) {
                     socket.emit("error", "You have playable cards.");
                     return;

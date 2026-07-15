@@ -196,7 +196,6 @@ export default function GameBoard({ gameState, socketId }: Props) {
   if (myPlayer) {
       const topCard = gameState.discardPile[gameState.discardPile.length - 1];
       hasPlayableCard = myPlayer.hand.some(card => {
-          if (gameState.drawnCardThisTurn && card.id !== gameState.drawnCardThisTurn.id) return false;
           if (gameState.currentPenalty > 0 && gameState.stackingEnabled) {
               if (gameState.mode === 'no-mercy') {
                   const topDrawVal = getDrawValue(topCard.value);
@@ -382,13 +381,13 @@ export default function GameBoard({ gameState, socketId }: Props) {
                                <input 
                                   type="number" 
                                   min="25" 
-                                  max="100" 
+                                  max="70" 
                                   value={gameState.eliminationLimit || 25} 
                                   onChange={(e) => handleUpdateSettings({limit: Math.max(25, parseInt(e.target.value) || 25)})} 
                                   className="bg-transparent w-12 text-center text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                                />
                                <button 
-                                  onClick={() => handleUpdateSettings({limit: Math.min(100, (gameState.eliminationLimit || 25) + 1)})}
+                                  onClick={() => handleUpdateSettings({limit: Math.min(70, (gameState.eliminationLimit || 25) + 1)})}
                                   className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white transition-colors"
                                >
                                   +
@@ -688,7 +687,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
              
              <div 
                  onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY; }} 
-                 className="flex -space-x-8 hover:space-x-2 transition-all duration-300 px-8 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar"
+                 className="flex -space-x-8 px-8 w-full items-center overflow-x-auto h-full pt-4 pb-0 hide-scrollbar"
                  style={{ justifyContent: 'safe center' }}>
                
                {myPlayer.eliminated ? (
@@ -720,9 +719,7 @@ export default function GameBoard({ gameState, socketId }: Props) {
                    } else if (canJumpIn) {
                       isValid = true;
                    }
-                   if (gameState.drawnCardThisTurn && card.id !== gameState.drawnCardThisTurn.id) {
-                      isValid = false;
-                   }
+
 
 
                    return (
@@ -730,13 +727,12 @@ export default function GameBoard({ gameState, socketId }: Props) {
                        key={card.id}
                        layoutId={card.id}
                        layout
-                       initial={{ opacity: 0, y: -200, scale: 0.2 }}
-                       animate={{ opacity: 1, y: 0, scale: 1, rotate: 0, x: 0, transition: { delay: (index % 10) * 0.15 } }}
-                       exit={{ opacity: 0, scale: 0.5 }}
-                       whileHover={isValid ? { y: -24, rotate: (index % 2 === 0 ? 3 : -2), zIndex: 50, scale: 1.05 } : {}}
-                       className={`relative shrink-0 transition-all cursor-pointer shadow-2xl ${!isValid && isMyTurn ? 'opacity-50 brightness-75 grayscale-[20%]' : ''} ${!isValid ? 'pointer-events-none' : ''}`}
+                       initial={{ opacity: 0, y: -200, scale: 0.2, zIndex: index }}
+                       animate={{ opacity: 1, y: 0, scale: 1, rotate: 0, x: 0, zIndex: index, transition: { delay: (index % 10) * 0.15 } }}
+                       exit={{ opacity: 0, scale: 0.5, zIndex: index }}
+                       whileHover={{ y: -24, rotate: (index % 2 === 0 ? 3 : -2), zIndex: 50, scale: 1.05 }}
+                       className={`relative shrink-0 shadow-2xl ${!isValid && isMyTurn ? 'opacity-50 brightness-75 grayscale-[20%]' : ''} ${isValid ? 'cursor-pointer drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]' : 'cursor-default'}`}
                        onClick={() => isValid && handlePlayCard(card)}
-                       style={{ zIndex: index }}
                      >
                        <PlayingCard card={card} />
                        {canJumpIn && (
